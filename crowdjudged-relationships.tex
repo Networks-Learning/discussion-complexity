@@ -1,0 +1,68 @@
+\documentclass[11pt]{article}
+
+% \usepackage{jmlr2e}
+\usepackage{fullpage}
+\usepackage{url}
+\usepackage{verbatim} % allows multiline comments
+\usepackage{caption}
+\usepackage[noend]{algorithmic}
+\usepackage[vlined,ruled]{algorithm2e}
+\usepackage{amsmath}
+\usepackage{Definitions}
+\usepackage{color}
+\usepackage{enumitem}
+\usepackage{subfig}
+\usepackage{mathtools}
+\usepackage{adjustbox}
+
+\usepackage{color}
+
+\title{Crowd-judged social relationships}
+
+\author{Utkarsh Upadhyay}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Yahoo! News has a thriving community of users who participate in the conversation surrounding all news articles by leaving comments and their reactions following the news on all topics ranging from politics to sports. The commenters hold diverse opinions about the topics and often do not agree with each other, adding more and more to the conversation. Identifying the underlying (dis)agreement network between the commenters is an interesting and important problem.
+
+Such a network can reveal several interesting and actionable insights:
+
+\begin{itemize}
+  \item Users who always agree across nearly all topics may be astroturfing or be bots.
+  \item Users who almost always disagree with everyone else may be trolls.
+  \item Targeting articles to users depending on who has commented on it (sorting by agreement or by disagreement among currently active commenters relative to the recommendee).
+\end{itemize}
+
+In this project, we will leverage crowd assessments to identify such a network along with the degree of agreement along each edge. We will develop a general method which could be readily applied to any commenting system which allows up/down voting actions on the comments.
+
+It will also be interesting to study the evolution of relationships between users in an online incremental manner by discounting older assessments and incorporating newer ones. This will allow us to determine the key articles which were useful in reconciling commenters. We will also be able to identify orchestrated attacks which will appear as strong agreement between commenters which is highly localized in time.
+
+\section{Background}
+
+The problem of information diffusion has been addressed before by studying cascading network on Twitter (NetRate/NetInf Gomez-Rodriguez KDD 2010, ICML 2011). The networks in this case did not model the polarity of the relationship between users. Previous work on Memetracker dataset (Leskovec ICWSM 2011) used sentiment analysis to determine whether a meme (\ie a quote) had been used in a positive or negative (sentiment) context. Sentiment analysis is a rough tool at best for determining agreement between users.
+
+These methods cannot be ported directly to comments because comments are written in context of the original news article and are usually quite compact. Hence, understanding the intent of the comments, let alone their relative polarity, is challenging.
+
+Further, Cheng et al (AAAI 2015) investigate how community feedback shapes user behavior. We are also will use the votes given by users but instead of determining how the feedback effects other commenters, we are interested in the latent signal in the voting patterns.
+
+\section{Key Idea}
+
+\begin{center}
+  \textbf{Image with Kimberley comment here.}
+\end{center}
+
+A person looking at a comment posted by commenter kimberley and a reply posted by commenter Moshe will be able to judge their intent and agreement much more easily and accurately than the state of the art algorithms. The person will have certain opinions in the matter and the votes that she gives to the two comments will reveal the relative positioning of the comment with respect to his (unknown) beliefs (\ie upvote if the comment agrees with his belief and down-vote if it does not). Even if we do not know the beliefs of the person, nor the intent of the comments themselves, if the votes given to the two posts differ, we can conclude that the comments, and the commenters in turn, differ or disagree with each other and vice versa.
+
+If many people (\ie a crowd) thus judge and reveal the relative agreement of the two commenters across several articles dealing with the same topic, we should be able to recover the extent of agreement or disagreement between them in the network of commenters.
+
+\section{Data needed}
+
+To be able to conduct this study, we will need access to the log-data for comments on Yahoo! News articles. The data should contain the comment bodies with metadata (\ie the timestamp and the commenter identity) and the votes (thumbs up/down reactions) cast by the crowd with metadata (\ie the timestamp and the voter identity). We will also need the content of the news article and the associated metadata (\ie the timestamp, keywords, etc.).
+
+\end{document}
