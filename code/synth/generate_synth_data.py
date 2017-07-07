@@ -80,7 +80,7 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
     RS = np.random.RandomState(seed=seed)
 
     # Adding some values to them to avoid confusing the index with the ids.
-    commentor_ids = np.arange(N) + 100
+    commenter_ids = np.arange(N) + 100
     article_ids = np.arange(A) + 1000
     voter_ids = np.arange(M) + 10000
     topic_ids = np.arange(K) + 100000
@@ -91,14 +91,14 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
 
     # Generate random opinions
     if voting == COS_SIM:
-        commentor_opinions = (RS.rand(N, K) - 0.5) * 4 * np.pi
+        commenter_opinions = (RS.rand(N, K) - 0.5) * 4 * np.pi
         voter_opinions = (RS.rand(M, K) - 0.5) * 4 * np.pi
     elif voting == THRES_FIXED:
-        commentor_opinions = RS.rand(N, K)
+        commenter_opinions = RS.rand(N, K)
         voter_opinions = RS.rand(M, K)
         thres = RS.rand(1) / 2
     elif voting == THRES_RAND:
-        commentor_opinions = RS.rand(N, K)
+        commenter_opinions = RS.rand(N, K)
         voter_opinions = RS.rand(M, K)
         thres = RS.rand(M) / 2
     else:
@@ -114,20 +114,20 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
         voter_idx, voterId = choose_idx_item(RS, voter_ids)
         article_idx, articleId = choose_idx_item(RS, article_ids)
         topic_idx, articleTopic = map_article_to_topic[articleId]
-        voter_opinion = voter_opinions[voter_idx]
-        parent_commentor_idx, parentCommenterId = choose_idx_item(RS, commentor_ids)
+        voter_opinion = voter_opinions[voter_idx, topic_idx]
+        parent_commenter_idx, parentCommenterId = choose_idx_item(RS, commenter_ids)
         # Child and the parent commenter should not be the same.
         while True:
-            child_commentor_idx, childCommenterId = \
-                choose_idx_item(RS, commentor_ids)
-            if child_commentor_idx != parent_commentor_idx:
+            child_commenter_idx, childCommenterId = \
+                choose_idx_item(RS, commenter_ids)
+            if child_commenter_idx != parent_commenter_idx:
                 break
 
         parentCommentId = 2 * P
         childCommentId = 2 * P + 1
 
-        parent_opinion = commentor_opinions[parent_commentor_idx, topic_idx]
-        child_opinion = commentor_opinions[child_commentor_idx, topic_idx]
+        parent_opinion = commenter_opinions[parent_commenter_idx, topic_idx]
+        child_opinion = commenter_opinions[child_commenter_idx, topic_idx]
 
         if voting == 'cossim':
             parentVote = -1 if np.cos(voter_opinion - parent_opinion) < 0 else 1
@@ -176,10 +176,10 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
     truth = pd.DataFrame.from_dict(
         [{'type': 'commenter',
           'id': Id,
-          'opinion': commentor_opinions[commentor_idx, t_idx],
+          'opinion': commenter_opinions[commenter_idx, t_idx],
           'thres': -1,
           'topic': topicId}
-         for commentor_idx, Id in enumerate(commentor_ids)
+         for commenter_idx, Id in enumerate(commenter_ids)
          for t_idx, topicId in enumerate(topic_ids)] +
         [{'type': 'voter',
           'id': Id,
