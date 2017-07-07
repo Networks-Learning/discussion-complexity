@@ -9,6 +9,9 @@ COS_SIM = 'cossim'
 THRES_FIXED = 'thres_fixed'
 THRES_RAND = 'thres_rand'
 
+VOTER = 'voter'
+COMMENTER = 'commenter'
+
 # Output headers:
 #  - TraceId
 #  - VoterId
@@ -175,14 +178,14 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
 
     df = pd.DataFrame.from_dict(data)
     truth = pd.DataFrame.from_dict(
-        [{'type': 'commenter',
+        [{'type': COMMENTER,
           'id': Id,
           'opinion': commenter_opinions[commenter_idx, t_idx],
           'thres': -1,
           'topic': topicId}
          for commenter_idx, Id in enumerate(commenter_ids)
          for t_idx, topicId in enumerate(topic_ids)] +
-        [{'type': 'voter',
+        [{'type': VOTER,
           'id': Id,
           'opinion': voter_opinions[v_idx, t_idx],
           'thres': get_thres(v_idx),
@@ -192,6 +195,11 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
     )
 
     return df, truth
+
+
+def get_commenter_ids(truth_df):
+    """Extract the commenter_ids from truth_df."""
+    return sorted(truth_df[truth_df.type == COMMENTER].id)
 
 
 if __name__ == '__main__':
