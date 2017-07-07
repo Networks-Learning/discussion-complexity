@@ -91,8 +91,8 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
 
     # Generate random opinions
     if voting == COS_SIM:
-        commenter_opinions = (RS.rand(N, K) - 0.5) * 4 * np.pi
-        voter_opinions = (RS.rand(M, K) - 0.5) * 4 * np.pi
+        commenter_opinions = (RS.rand(N, K) - 0.5) * 2
+        voter_opinions = (RS.rand(M, K) - 0.5) * 2
     elif voting == THRES_FIXED:
         commenter_opinions = RS.rand(N, K)
         voter_opinions = RS.rand(M, K)
@@ -130,8 +130,8 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
         child_opinion = commenter_opinions[child_commenter_idx, topic_idx]
 
         if voting == 'cossim':
-            parentVote = -1 if np.cos(voter_opinion - parent_opinion) < 0 else 1
-            childVote = -1 if np.cos(voter_opinion - child_opinion) < 0 else 1
+            parentVote = -1 if np.cos((voter_opinion - parent_opinion) * np.pi) < 0 else 1
+            childVote = -1 if np.cos((voter_opinion - child_opinion) * np.pi) < 0 else 1
         elif voting.startswith('thres_'):
             if thres.shape[0] > 1:
                 voter_thres = thres[voter_idx]
@@ -160,6 +160,7 @@ def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
             'ArticleTopic': articleTopic,
             'ChildCommenterId': childCommenterId,
             'ChildCommentTime': childCommentTime,
+            'Disagree': parentVote != childVote
         })
 
     def get_thres(voter_idx):
