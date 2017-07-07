@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import seqfile
 import os
+import decorated_options as Deco
 
 COS_SIM = 'cossim'
 THRES_FIXED = 'thres_fixed'
@@ -22,6 +23,18 @@ COMMENTER = 'commenter'
 #  - ParentCommentTime , ChildCommentTime
 #  - ParentVoteTime    , ChildVoteTime
 
+DEF_OPTS = Deco.Options(
+    N=10,
+    M=100,
+    A=100,
+    K=1,
+    P=1000,
+    verbose=True,
+    voting=COS_SIM,
+    force=False,
+    seed=42
+)
+
 
 def choose_idx_item(random_state, arr):
     """Returns a random item and an index."""
@@ -32,15 +45,15 @@ def choose_idx_item(random_state, arr):
 @click.command()
 @click.argument('output_path')
 @click.argument('truth_path')
-@click.option('-N', 'N', default=10, type=int, help='Number of commenters.')
-@click.option('-M', 'M', default=100, type=int, help='Number of voters.')
-@click.option('-A', 'A', default=100, type=int, help='Number of articles.')
-@click.option('-K', 'K', default=1, type=int, help='Number of topics.')
-@click.option('-P', 'P', default=1000, type=int, help='Number of patterns to generate.')
-@click.option('--verbose/--no-verbose', default=True, help='Verbose output.')
-@click.option('--force/--no-force', default=False, help='Force overwrite if the output file exists')
-@click.option('--voting', default='cossim', help='Mechanism for voting', type=click.Choice([COS_SIM, THRES_RAND, THRES_FIXED]))
-@click.option('--seed', default=42, help='Random seed.')
+@click.option('-N', 'N', default=DEF_OPTS.N, type=int, help='Number of commenters.')
+@click.option('-M', 'M', default=DEF_OPTS.M, type=int, help='Number of voters.')
+@click.option('-A', 'A', default=DEF_OPTS.A, type=int, help='Number of articles.')
+@click.option('-K', 'K', default=DEF_OPTS.K, type=int, help='Number of topics.')
+@click.option('-P', 'P', default=DEF_OPTS.P, type=int, help='Number of patterns to generate.')
+@click.option('--verbose/--no-verbose', default=DEF_OPTS.verbose, help='Verbose output.')
+@click.option('--force/--no-force', default=DEF_OPTS.force, help='Force overwrite if the output file exists')
+@click.option('--voting', default=DEF_OPTS.voting, help='Mechanism for voting', type=click.Choice([COS_SIM, THRES_RAND, THRES_FIXED]))
+@click.option('--seed', default=DEF_OPTS.seed, help='Random seed.')
 def cmd(output_path, truth_path, N, M, P, A, K, verbose, force, voting, seed):
     """Generate synthetic data and put it in OUTPUT_PATH while putting ground
     truth opinions in TRUTH_PATH."""
@@ -75,8 +88,8 @@ def save_data(df, truth, output_path, truth_path, verbose, force):
     truth.to_csv(output_path, index=False)
 
 
-def run(N=10, M=100, A=100, K=1, P=1000, verbose=True, seed=42,
-        voting='cossim'):
+@Deco.optioned('opts')
+def run(N, M, A, K, P, verbose, seed, voting):
     """Generate synthetic data."""
 
     # Set seed
