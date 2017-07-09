@@ -210,10 +210,5 @@ def run(N, M, A, K, P, verbose, seed, voting):
     return df, truth
 
 
-def get_commenter_ids(truth_df):
-    """Extract the commenter_ids from truth_df."""
-    return sorted(truth_df[truth_df.type == COMMENTER].id)
-
-
 if __name__ == '__main__':
     cmd()

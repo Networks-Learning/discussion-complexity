@@ -4,6 +4,21 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 
+def get_all_commenter_ids(df):
+    """Returns a (sorted) list of all commenter ids in the dataframe."""
+    return sorted(set(df['ParentCommenterId']).union(set(df['ChildCommenterId'])))
+
+
+def get_all_voter_ids(df):
+    """Returns a (sorted) list of all voter ids in the dataframe."""
+    return sorted(set(df['VoterId']))
+
+
+def get_all_topic_ids(df):
+    """Returns a (sorted) list of all voter ids in the dataframe."""
+    return sorted(set(df['ArticleTopic']))
+
+
 def get_unique_topic(topics):
     """Returns a unique topic if in df. Otherwise, raises an error."""
     unique_topics_ids = topics.unique()
