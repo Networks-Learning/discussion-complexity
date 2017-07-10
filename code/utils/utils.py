@@ -4,9 +4,15 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 
+def map_id_to_idx(arr):
+    """Reverse maps the values in the array to their index."""
+    return {id: idx for idx, id in enumerate(arr)}
+
+
 def get_all_commenter_ids(df):
     """Returns a (sorted) list of all commenter ids in the dataframe."""
-    return sorted(set(df['ParentCommenterId']).union(set(df['ChildCommenterId'])))
+    return sorted(set(df['ParentCommenterId'])
+                  .union(set(df['ChildCommenterId'])))
 
 
 def get_all_voter_ids(df):
@@ -26,7 +32,6 @@ def get_unique_topic(topics):
                                          "there must be only one unique "
                                          "topic_id in the dataset.")
     return unique_topics_ids[0]
-
 
 
 def truth_df_to_matrix(truth_df, commenter_ids, topic_id=None):
