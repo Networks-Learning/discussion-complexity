@@ -5,13 +5,8 @@ import numpy as np
 import seqfile
 import os
 import decorated_options as Deco
+from consts import COS_SIM, THRES_FIXED, THRES_RAND, VOTER, COMMENTER
 
-COS_SIM = 'cossim'
-THRES_FIXED = 'thres_fixed'
-THRES_RAND = 'thres_rand'
-
-VOTER = 'voter'
-COMMENTER = 'commenter'
 
 # Output headers:
 #  - TraceId
