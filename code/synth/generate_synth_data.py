@@ -88,7 +88,7 @@ def save_data(df, truth, output_path, truth_path, verbose, force):
     truth.to_csv(output_path, index=False)
 
 
-@Deco.optioned('opts')
+@Deco.optioned()
 def run(N, M, A, K, P, verbose, seed, voting):
     """Generate synthetic data."""
 
