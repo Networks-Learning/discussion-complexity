@@ -1,6 +1,8 @@
 import cvxpy as CVX
 import decorated_options as Deco
 import warnings
+import numpy as np
+from consts import COMMENTERS, VOTERS, THETA, VOTER
 
 
 def make_thres_vars(N, M, K):
@@ -25,21 +27,22 @@ def make_thres_vars(N, M, K):
     theta = [CVX.Variable(name='theta_%d' % d) for d in range(K)]
 
     return {
-        'commenters': commenter_opinions,
-        'voters': voter_opinions,
-        'theta': theta
+        COMMENTERS: commenter_opinions,
+        VOTERS: voter_opinions,
+        THETA: theta
     }
 
 
 def _upvote_cstr(x, v, thres):
-    return [x - v <= thres,
-            v - x <= thres]
+    return [CVX.abs(x - v) <= thres]
 
 
-def _downvote_cstr(x, v, thres, b, M=100):
-    return [v - x >= thres - M * (1 - b),
-            x - v >= thres - M * b,
-            0 <= b, b <= 1]
+# def _downvote_cstr(x, v, thres, b, M=100):
+#     return [v - x >= thres - M * (1 - b),
+#             x - v >= thres - M * b,
+#             0 <= b, b <= 1]
+def _downvote_cstr(x, v, thres):
+    return [CVX.abs(x - v) > thres]
 
 
 @Deco.optioned()
@@ -91,7 +94,8 @@ def make_constraints(topic_id_to_idx, commenter_id_to_idx, voter_id_to_idx,
                 b = CVX.Int(name='Parent_%s_b' % trace_id)
 
             aux_vars[('Parent', trace_id)] = b
-            constraints.extend(_downvote_cstr(x_i, v, thres, b))
+            # constraints.extend(_downvote_cstr(x_i, v, thres, b))
+            constraints.extend(_downvote_cstr(x_i, v, thres))
 
         if child_vote > 0:
             constraints.extend(_upvote_cstr(x_j, v, thres))
@@ -103,7 +107,8 @@ def make_constraints(topic_id_to_idx, commenter_id_to_idx, voter_id_to_idx,
                 b = CVX.Int(name='Child_%s_b' % trace_id)
 
             aux_vars[('Child', trace_id)] = b
-            constraints.extend(_downvote_cstr(x_i, v, thres, b))
+            # constraints.extend(_downvote_cstr(x_i, v, thres, b))
+            constraints.extend(_downvote_cstr(x_i, v, thres))
 
     if fixed_thres:
         for k in range(1, len(topic_id_to_idx)):
@@ -143,3 +148,19 @@ def make_downvote_objective(topic_id_to_idx, commenter_id_to_idx, voter_id_to_id
 def make_satisfiable():
     """An objective function which just finds a satisfiable solution."""
     return CVX.Maximize(1)
+
+
+@Deco.optioned()
+def make_improvement(truth_df, commenter_id_to_idx, noise_sigma, model_vars, seed):
+    """Make an objective which says that the objective is to "correct" sentiment values."""
+    Y = [None] * len(commenter_id_to_idx)
+    X = model_vars[COMMENTERS]
+    rs = np.random.RandomState(seed=seed)
+    obj = 0
+    for c_id, opinion in truth_df[truth_df.type == COMMENTERS][['id', 'opinion']].values:
+        c_idx = commenter_id_to_idx[int(c_id)]
+        Y[c_idx] = opinion + rs.randn() * noise_sigma
+        obj += CVX.square(X[c_idx] - Y[c_idx])
+
+    return CVX.Minimize(obj)
+
