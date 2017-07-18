@@ -178,7 +178,7 @@ def run(N, M, A, K, P, verbose, seed, voting):
         if voting == COS_SIM:
             return -1
         elif voting == THRES_FIXED:
-            return thres
+            return thres[0]
         elif voting == THRES_RAND:
             return thres[voter_idx]
         else:
