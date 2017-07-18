@@ -2,7 +2,7 @@ import cvxpy as CVX
 import decorated_options as Deco
 import warnings
 import numpy as np
-from consts import COMMENTERS, VOTERS, THETA, VOTER
+from consts import COMMENTERS, VOTERS, THETA
 
 
 def make_thres_vars(N, M, K):
