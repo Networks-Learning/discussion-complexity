@@ -14,7 +14,7 @@ except NameError:
 #      - `pred = #(disagreements) / #(total)`
 
 def get_pred_unif_polar(df, topic_id=None):
-    """Assume that the opinions of the voters and commentors lie on uniformly
+    """Assume that the opinions of the voters and commenters lie on uniformly
     on a unit circle."""
     if topic_id is None:
         topic_id = get_unique_topic(df.ArticleTopic)
