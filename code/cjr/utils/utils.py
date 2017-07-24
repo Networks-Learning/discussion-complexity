@@ -167,21 +167,29 @@ def latexify(fig_width=None, fig_height=None, columns=1, largeFonts=False):
     plt.rcParams.update(params)
 
 
-def format_axes(ax):
+def format_axes(ax, polar=None):
 
     SPINE_COLOR = 'grey'
-    for spine in ['top', 'right']:
-        ax.spines[spine].set_visible(False)
 
-    for spine in ['left', 'bottom']:
-        ax.spines[spine].set_color(SPINE_COLOR)
-        ax.spines[spine].set_linewidth(0.5)
+    if polar is None:
+        polar = 'polar' in ax.spines
 
-    ax.xaxis.set_ticks_position('bottom')
-    ax.yaxis.set_ticks_position('left')
+    if polar:
+        ax.spines['polar'].set_color(SPINE_COLOR)
+        ax.spines['polar'].set_linewidth(0.5)
+    else:
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
 
-    for axis in [ax.xaxis, ax.yaxis]:
-        axis.set_tick_params(direction='out', color=SPINE_COLOR)
+        for spine in ['left', 'bottom']:
+            ax.spines[spine].set_color(SPINE_COLOR)
+            ax.spines[spine].set_linewidth(0.5)
+
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+
+        for axis in [ax.xaxis, ax.yaxis]:
+            axis.set_tick_params(direction='out', color=SPINE_COLOR)
 
     return ax
 
