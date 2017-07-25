@@ -3,6 +3,7 @@
 This is the current directory structure with short descriptions:
 
 
+▸ paper/                        | Notes on the approaches in the code.
 ▾ code/                         | All Code
  ▾ cjr/                         | Module containing all the code
    ▾ models/
