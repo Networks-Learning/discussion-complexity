@@ -60,9 +60,9 @@
         <section id="motivation" class="ui one column row left aligned">
             <div class="ui segment column">
                 <h2><a class="internal" href="#motivation">Motivation</a></h2>
-                <p>The world is becoming divided and it is imperative to determine the nature relationship between people on social networks. The users leave evidence of their relationships with others as they interact publicly on the networks via comments and voting. However, understanding the comments and the intent of the users behind them is a difficult task; tools such as sentiment analysis often too crude and miss too much context to be able to help us effectively.</p>
+                <p>The world is becoming divided and it is imperative to determine the nature relationship between people on social networks. The users leave evidence of their relationships with others as they interact publicly on the networks via comments and votes. However, understanding the comments and the intent of the users behind them is a difficult task; tools such as sentiment analysis are often too crude and miss too much context to be able to help us effectively.</p>
 
-                <p>In this project, we will explore ways we can leverage (voting) actions taken by other members of the crowd to uncover the relationship between users who interact often on the site.
+                <p>In this project, we will explore ways we can leverage (voting) actions taken by other members of the crowd to uncover the relationship between commenters who interact on the site.
                 Discovering such an (dis)agreement network among the users of the site may lead to several interesting and actionable insights:
                 </p>
 
@@ -72,7 +72,7 @@
                    <li>Targeting articles to users depending on who has commented on it (i.e., sorting by (dis)agreement among currently active commenters relative to the recommended).</li>
                </ul>
 
-               <p>It will also be interesting to study the evolution of relationships between users in an online incremental manner by discounting older assessments and incorporating newer ones. This will allow us to determine the key articles which were useful in reconciling commenters. We will also be able to identify orchestrated attacks which will appear as temporally localize strong agreement between commenters.</p>
+               <p>It will also be interesting to study the evolution of relationships between users in an online incremental manner by discounting older assessments and incorporating newer ones. This will allow us to determine the key articles which were useful in reconciling commenters. We will also be able to identify orchestrated attacks which will appear as temporally localized strong agreement between commenters.</p>
             </div>
         </section>
 
@@ -80,26 +80,29 @@
             <div class="ui segment column">
                 <h2><a class="internal" href="#methogology">Methodology</a></h2>
 
-                <p>Consider the following interaction which happened in the comment section under an article about <code>gun control</code>:</p>
+                <p>Consider the following interaction which happened in the comment section under an article about <code>gun control</code> where <b>K</b> and <b>M</b> actually disagree:</p>
 
                 <img class="ui centered medium image" src="./img/sarcasm-anon.png" alt="Example of sarcasm in comments">
 
-                <p>A human reading the comments can easily identify the sarcasm and that <b>K</b>and <b>M</b> actually disagree much more easily than the current state-of-the-art methods.
-                This person can then choose to cast votes on the parent comment and the reply.
-                These votes can tell us the relative positioning of the opinions expressed in the comments with respect to the voter's comments.</p>
+                <p>Despite confusing signals in the reply, a human reading the comments can easily identify the intent behind the comments and detect the sarcasm much more easily than the current state-of-the-art methods.
+                The votes this person casts on the comments can tell us the relative positioning of the opinions expressed in the comments with respect to the voter's opinion.
+                For example, the voter is unlikely to agree both with the parent and the reply in the example shown.
+                Hence, he will cast either upvote/downvote or downvote/upvote on the comments, giving us a signal that the comments themselves do not agree.</p>
 
                 <p>
                 If sufficient number of votes cast such votes, we ought to be able to uncover the relative degree of (dis)agreement between the comments.
-                Aggregating the difference between comments cast on same-topic articles by the same commenters can lead to determination of degree of (dis)agreement between commenters on the topic.
+                Aggregating this measure over comments cast on same-topic articles by the same commenters will lead to determination of degree of (dis)agreement between commenters on the topic.
+                This pair-wise measure of (dis)agreement can then be used to create a network of (dis)agreement between the commenters on the site.
                 </p>
 
-                <h4 id="data"><a href="#data">Data available &amp; data required</a></h4>
+                <h4 id="data"><a href="#data">Data required</a></h4>
 
-                <p>The comments cast by users on the site are public. However, the public information is missing key pieces of information which are crucial for our project:</p>
+                <p>The comments cast by users on the site are public data.
+                However, key pieces of information are missing from it which are crucial for our project:</p>
 
                 <ol>
                     <li>
-                      <p><span class="bold">Identity of voters/commenters:</span> The public data does not identify the voters which are casting the up/down vote on the comments. Only if we know that the same voter cast two votes will we be able to relatively position the opinions expressed in the comments.</p>
+                      <p><span class="bold">Identity of voters (and commenters):</span> The public data does not identify the voters which are casting the up/down vote on the comments. Only if we know that the same voter cast two votes will we be able to relatively position the opinions expressed in the comments. Note that we do not need to tie the voters to an account; an anonymised hash of the Unique Identifier for the voter will be sufficient.</p>
                     </li>
                     <li>
                         <p><span class="bold">Timestamps for votes/comments:</span> Knowing the timestamps will helps us in discovering the evolution of votes a post was getting and the evolution of opinions of the voters.</p>
@@ -107,12 +110,15 @@
                     <li>
                       <p>
                         <span class="bold">Metadata about the comments:</span>
-                        The URL of the article, the body of the comment, the Avatar of the user and any data on flagging/moderation will be useful to have.
+                        The URL of the article, the body of the comment, the Avatar of the user and any data on flagging/moderation will be useful to have, esp. if we design controlled laboratory experiments.
                       </p>
                     </li>
                 </ol>
 
-                <p>The study will be made more interesting if we have datasets about comments from multiple diverse communities to see the similarities and differences in the underlying networks among them.</p>
+                <p>The study will be made more interesting if we have datasets
+                about comments from multiple diverse communities to see the
+                similarities and differences in the underlying networks among
+                them.</p>
             </div>
         </section>
 
@@ -121,7 +127,7 @@
                 <h2><a href="#research-background">Research Background</a></h2>
                 <p>I am currently an PhD candidate at <a href="http://mpi-sws.org">MPI-SWS</a>, in Kaiserslautern, Germany, under <a href="http://www.mpi-sws.org/~manuelgr/">Prof. Manuel Gomez Rodriguez's</a> supervision. I am interested in understanding how people learn online, how they express opinions, and how their opinions/expertise evolves over time by studying detailed traces of activity they leave on Social Media and other online sites.</p>
 
-                <p>Prior to starting to spent the last two and a half years working at <a href="http://better.com">Better AG</a>, a start-up in Switzerland, which offered adaptive learning as a service to schools and corporations. We also provided aids to teachers for accessing progress of learners. I gained practical experience in how learning happens there. I am now interested in undertaking more principled and research oriented projects.</p>
+                <p>Prior to starting my PhD, I worked at <a href="http://grcsolutions.com.au/compliance-technology/adaptive-elearning-lcms/platform/">Better AG (now called Salt)</a>, a start-up in Switzerland, which offered adaptive learning as a service to schools and corporations. We also provided aids to teachers for accessing progress of learners. I am now interested in undertaking more principled and research oriented projects in related areas.</p>
 
                 <ul>
                     <li><a href="http://musicallyut.in/docs/utkarsh-upadhyay-cv.pdf">CV</a></li>
