@@ -4,8 +4,8 @@ import networkx as nx
 
 
 def to_bin(n, length):
-    """Convert a number into a vector of booleans corresponding to voting pattern of
-    the given length."""
+    """Convert a number into a vector of booleans corresponding to voting
+    pattern of the given length."""
     s = bin(n)[2:]
     s = '0' * (length - len(s)) + s
     return [x == '1' for x in s]
@@ -68,8 +68,9 @@ def create_prob(n_dim, voting_patterns):
 
 
 def gen_voting_patterns(n_comments, n_votes, p_up, p_down, seed=360):
-    """Generate random voting patterns with the given probability of up/down/no-votes.
-    Note that the generated voting patterns are not forced to be unique.
+    """Generate random voting patterns with the given probability of
+    up/down/no-votes. Note that the generated voting patterns are not forced to
+    be unique.
     """
     rs = np.random.RandomState(seed=seed)
     return [to_str(rs.choice([True, False, None], size=n_comments,
@@ -83,7 +84,8 @@ def opinions_differ(vote_1, vote_2):
 
 
 def create_disgreement_graph(num_comments, rand_votes):
-    """Create a graph of disagreements among comments as evinced by voting patterns."""
+    """Create a graph of disagreements among comments as evinced by voting
+    patterns."""
     vote_pats = set(rand_votes)
     edges = [(i, j)
              for pat in vote_pats
