@@ -4,8 +4,8 @@ import networkx as nx
 
 
 @click.command()
-@click.option('-N', '--comments', 'num_comments', help='Number of comments.', type=int)
-@click.option('-M', '--voters', 'num_voters', help='Number of voters.', type=int)
+@click.option('-N', '--comments', 'num_comments', help='Number of comments.', type=int, default=5)
+@click.option('-M', '--voters', 'num_voters', help='Number of voters.', type=int, default=20)
 @click.option('--seed', help='Seed for the voting patterns.', default=360, type=int)
 @click.option('--up', help='Upvote probability.', type=float, default=0.2)
 @click.option('--down', help='Downvote probability.', type=float, default=0.2)
