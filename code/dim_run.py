@@ -6,7 +6,7 @@ import networkx as nx
 @click.command()
 @click.option('-N', '--comments', 'num_comments', help='Number of comments.', type=int)
 @click.option('-M', '--voters', 'num_voters', help='Number of voters.', type=int)
-@click.option('--seed', help='Seed for the voting patterns.', type=int)
+@click.option('--seed', help='Seed for the voting patterns.', default=360, type=int)
 @click.option('--up', help='Upvote probability.', type=float, default=0.2)
 @click.option('--down', help='Downvote probability.', type=float, default=0.2)
 @click.option('--verbose/--no-verbose', help='Verbose.', default=False)
@@ -17,20 +17,21 @@ def cmd(num_comments, num_voters, seed, up, down, verbose):
     unique_voting_pats = list(set(rand_votes))
     for dim in range(1, 2 ** num_voters):
         s, com_vars, voter_vars = D.create_prob(dim, unique_voting_pats)
-        if s.check().r != 1:
+        if s.check().r == 1:
             if verbose:
                 print('Breaking for dim = ', dim)
             break
 
-    max_sat_dim = dim - 1
+    max_sat_dim = dim
 
     graph = D.create_disgreement_graph(num_comments, unique_voting_pats)
-    clique = next(nx.algorithms.clique.find_cliques(graph))
-    max_clique_dim = len(clique) - 1
+    max_clique = max(len(x) for x in nx.algorithms.clique.find_cliques(graph))
+    max_clique_dim = max_clique - 1
 
     if max_sat_dim != max_clique_dim:
-        print('seed = ', seed, 'N = ', N, 'M = ', M,
-              'up = ', up, 'down = ', down)
+        print('seed = ', seed, 'N = ', num_comments, 'M = ', num_voters,
+              'up = ', up, 'down = ', down, 'max_sat_dim = ', max_sat_dim,
+              'max_clique_dim = ', max_clique_dim)
 
 
 if __name__ == '__main__':
