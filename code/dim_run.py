@@ -1,4 +1,5 @@
 import click
+from math import ceil
 import cjr.models.dim as D
 import networkx as nx
 
@@ -21,14 +22,17 @@ def cmd(num_comments, num_voters, seed, up, down, verbose):
             if verbose:
                 print('Breaking for dim = ', dim)
             break
+        else:
+            if verbose:
+                print('UNSAT for dim = ', dim)
 
     max_sat_dim = dim
 
     graph = D.create_disgreement_graph(num_comments, unique_voting_pats)
     max_clique = max(len(x) for x in nx.algorithms.clique.find_cliques(graph))
-    max_clique_dim = max_clique - 1
+    max_clique_dim = ceil(max_clique / 2)
 
-    if max_sat_dim != max_clique_dim:
+    if max_sat_dim != max_clique_dim or verbose:
         print('seed = ', seed, 'N = ', num_comments, 'M = ', num_voters,
               'up = ', up, 'down = ', down, 'max_sat_dim = ', max_sat_dim,
               'max_clique_dim = ', max_clique_dim)
