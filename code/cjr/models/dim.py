@@ -1,6 +1,7 @@
 import z3
 import numpy as np
 import networkx as nx
+import scipy as sp
 
 
 def to_bin(n, length):
@@ -93,3 +94,54 @@ def create_disgreement_graph(num_comments, rand_votes):
              for j in range(i + 1, num_comments)
              if opinions_differ(pat[i], pat[j])]
     return nx.Graph(list(set(edges)))
+
+
+def generate_voting_matrix(num_comments, num_voters, dim, seed=100, voting_probs=None):
+    """Creates voting patterns for users/voters.
+    dim: The dimensionality of the opinion space.
+    voting_probs: should sum up to 1 and gives the probability of picking each
+    comment for voting. Default is Uniform.
+
+    Returns a sparse matrix in LIL format.
+    """
+    RS = np.random.RandomState(seed)
+
+    # Normalized latent representations.
+    # TODO: These are not evenly distributed on a circle, the proper way to do
+    # it would be to sample theta_1, theta_2, independently and then use
+    # spherical coordinates?
+    comment_vecs = RS.rand(num_comments, dim) - 0.5
+    comment_vecs = comment_vecs / np.sqrt(np.square(comment_vecs).sum(axis=1))[:, np.newaxis]
+
+    voter_vecs = RS.rand(num_voters, dim) - 0.5
+    voter_vecs = voter_vecs / np.sqrt(np.square(voter_vecs).sum(axis=1))[:, np.newaxis]
+
+    if voting_probs is None:
+        # Assume that each voter votes on average 5 posts.
+        voting_probs = [(1 / num_comments) * 5] * num_comments
+
+    voting_probs = np.asarray(voting_probs)
+
+    M = sp.sparse.lil_matrix((num_comments, num_voters), dtype=np.int8)
+    for v_idx in range(num_voters):
+        voted_on = np.nonzero(RS.rand(num_comments) < voting_probs)[0]
+        voter_vec = voter_vecs[v_idx]
+
+        for c_idx in voted_on:
+            vote = comment_vecs[c_idx].dot(voter_vec)
+            M[c_idx, v_idx] = np.sign(vote)
+
+    return M, comment_vecs, voter_vecs
+
+
+def similarity_matrix(comment_vecs, voter_vecs):
+    """Creates a matrix with the similarity value between each pair of voter
+    and commenter."""
+    return comment_vecs.dot(voter_vecs.T)
+
+
+def get_mat_R2(pred, truth):
+    """Calculates the R^2 for the prediction matrix."""
+    SS_res = np.square(pred - truth).sum()
+    SS_tot = np.square(truth - truth.mean()).sum()
+    return 1 - (SS_res / SS_tot)
