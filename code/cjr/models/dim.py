@@ -1,9 +1,10 @@
 import z3
 import numpy as np
 import networkx as nx
-import networkx as nx
+from pqdict import pqdict, nsmallest
 import scipy as sp
 from UnionFind import UnionFind
+from datetime import datetime
 from collections import defaultdict
 import heapq as PQ
 
@@ -191,14 +192,24 @@ def tiebreaker(i, j, len_P, eq_signs, eq_sets_uf):
 def _worker_spanning_tree(params):
     """Worker which does the spanning tree work."""
     ii, jj, probs, eq_sets_uf, eq_signs = params
-    return (weight(i=ii, j=jj, P=probs, eq_sets_uf=eq_sets_uf, eq_signs=eq_signs),
-            tiebreaker(i=ii, j=jj, len_P=len(probs), eq_sets_uf=eq_sets_uf, eq_signs=eq_signs),
-            (ii, jj))
+    weight, tie = 0.0, 0.0
+
+    for col in range(len(probs)):
+        sign_prod = eq_signs.get(eq_sets_uf[ii, col], 0) * eq_signs.get(eq_sets_uf[jj, col], 0)
+
+        if sign_prod == -1:
+            weight += probs[col]
+        elif sign_prod == 1:
+            tie -= 1.0
+
+    return (weight, tie, (ii, jj))
 
 
-def make_spanning_tree(sign_mat, min_avg=False, pool=None):
+def make_spanning_tree_old(sign_mat, min_avg=False, pool=None, verbose=False):
     """Create a spanning tree."""
     uf = UnionFind()
+
+    start_time = datetime.now()
 
     N = sign_mat.shape[0]
     for v in range(N):
@@ -208,7 +219,7 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None):
     equiv_signs = {(i, j): sign_mat[i, j] for i, j in zip(*sign_mat.nonzero())}
 
     forest = defaultdict(lambda: set())
-    probs = np.ones(sign_mat.shape[1]) / sign_mat.shape[1]
+    probs = np.ones(sign_mat.shape[1])
 
     params = [(ii, jj, probs, equiv_sets, equiv_signs)
               for ii in range(N) for jj in range(ii + 1, N)]
@@ -222,21 +233,23 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None):
 
     num_edges = 0
     while num_edges < N - 1:
-        x, _, (i, j) = PQ.heappop(edges_heap)
+        x, y, (i, j) = PQ.heappop(edges_heap)
         assert i < j
 
+        # Otherwise, this edge may have created a cycle
         if uf[i] != uf[j]:
-            # Otherwise, this edge would have created a cycle
-            edges_forest_i = forest[uf[i]]
-            edges_forest_j = forest[uf[j]]
+            edges_forest_i, edges_forest_j = forest[uf[i]], forest[uf[j]]
 
             new_root = uf.union(i, j)
             forest[new_root] = edges_forest_i.union(edges_forest_j)
             forest[new_root].add((i, j))
             num_edges += 1
 
+            merged_columns = set()
+
             for col in range(sign_mat.shape[1]):
                 if mergeable(equiv_signs, equiv_sets, i, j, col):
+                    merged_columns.add(col)
                     # If either of these is undecided, merge an equivalent sets.
                     old_i_root = equiv_sets[i, col]
                     old_j_root = equiv_sets[j, col]
@@ -248,12 +261,15 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None):
                     elif old_j_root in equiv_signs:
                         equiv_signs[root] = equiv_signs[old_j_root]
 
-            # if x > 0: # Merely an optimization
+                    # Which edges can be ignored due to column 'col'?
+
             if not min_avg:
                 # Minimize the worst case.
-                probs = [(2 * p / (1 + x))
-                             if diff_signs(equiv_signs, equiv_sets, i, j, idx)
-                             else p / (1 + x)
+                # probs = [(2 * p / (1 + x))
+                #              if diff_signs(equiv_signs, equiv_sets, i, j, idx)
+                #              else p / (1 + x)
+                #          for idx, p in enumerate(probs)]
+                probs = [(2 * p) if diff_signs(equiv_signs, equiv_sets, i, j, idx) else p
                          for idx, p in enumerate(probs)]
             else:
                 # Minimize the average case.
@@ -277,14 +293,243 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None):
                 # Optimization to avoid cycles: from O(N^2) => O((N - num_edges)^2) per iteration
             ]
 
+            if verbose:
+                cur_time = datetime.now()
+                print('edge = {}, added: ({}, {}), (x, y) = ({}, {}), elapsed = {}sec'
+                      .format(num_edges, i, j, x, y, (cur_time - start_time).total_seconds()))
+
             if pool is None:
-                edges_heap = [_worker_spanning_tree(y) for y in params]
+                edges_heap = [_worker_spanning_tree(w) for w in params]
             else:
                 edges_heap = pool.map(_worker_spanning_tree, params)
 
             PQ.heapify(edges_heap)
 
+            # if verbose:
+            #     differing_cols = [idx for idx in range(len(probs))
+            #                       if diff_signs(equiv_signs, equiv_sets, i, j, idx)]
+            #     print(sorted(edges_heap)[:5])
+            #     # print('differing_columns = ', differing_cols, 'merged columns = ', merged_columns)
+            #     # print([edges_heap[idx] for idx in range(len(edges_heap)) if edges_heap[idx][2][0] == 0 and edges_heap[idx][2][1] == 3])
+            #     print('***************\n')
+
     return forest[uf[0]], equiv_sets, equiv_signs
+
+
+def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False):
+    """Create a spanning tree."""
+    uf = UnionFind()
+
+    start_time = datetime.now()
+
+    N = sign_mat.shape[0]
+    for v in range(N):
+        uf.union(v)
+
+    equiv_sets = UnionFind()
+    eq_set_pos = defaultdict(lambda: set())
+    equiv_signs = {(i, j): sign_mat[i, j] for i, j in zip(*sign_mat.nonzero())}
+
+    col_sets = [{1: set(), -1: set()} for _ in range(sign_mat.shape[1])]
+
+    for i, j in zip(*sign_mat.nonzero()):
+        col_sets[j][equiv_signs[i, j]].add(i)
+
+    forest = defaultdict(lambda: set())
+    probs = np.ones(sign_mat.shape[1])
+    params = [(ii, jj, probs, equiv_sets, equiv_signs)
+              for ii in range(N) for jj in range(ii + 1, N)]
+
+    if pool is None:
+        edges_heap = [_worker_spanning_tree(x) for x in params]
+    else:
+        edges_heap = pool.map(_worker_spanning_tree, params)
+
+    pq_dict = pqdict({(i, j): (x, y, (i, j)) for (x, y, (i, j)) in edges_heap})
+
+    first_loop_2 = [True, True]
+
+    def update_col_sets(row, col, sgn, old_pos):
+        all_old_pos = old_pos.union([row])
+
+        loop_1_size = len(all_old_pos) * len(col_sets[col][-1 * sgn])
+        loop_2_size = len(pq_dict)
+
+        if loop_1_size < loop_2_size:
+            for u_ in col_sets[col][-1 * sgn]:
+                for v_ in all_old_pos:
+                    # These edges now have an additional differing
+                    # column.
+                    u, v = min(u_, v_), max(u_, v_)
+                    if uf[u] != uf[v] and (u, v) in pq_dict:
+                        (wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+        else:
+            if first_loop_2[0] and verbose:
+                print('Loop 2_1 triggered!')
+                first_loop_2[0] = False
+            set_1 = col_sets[col][-1 * sgn]
+            set_2 = all_old_pos
+
+            for u, v in pq_dict:
+                if uf[u] != uf[v]:
+                    if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
+                        (wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+                else:
+                    del pq_dict[u, v]
+
+        loop_1_size = len(all_old_pos) * len(col_sets[col][sgn])
+        loop_2_size = len(pq_dict)
+
+        if loop_1_size < loop_2_size:
+            for u_ in col_sets[col][sgn]:
+                for v_ in all_old_pos:
+                    # These edges now have an additional matching
+                    # column.
+                    u, v = min(u_, v_), max(u_, v_)
+                    if uf[u] != uf[v] and (u, v) in pq_dict:
+                        (wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt, tie - 1, (u, v))
+        else:
+            set_1 = col_sets[col][-1 * sgn]
+            set_2 = all_old_pos
+
+            if first_loop_2[1] and verbose:
+                print('Loop 2_2 triggered!')
+                first_loop_2[1] = False
+
+            for u, v in pq_dict:
+                if uf[u] != uf[v]:
+                    if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
+                        (wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt, tie - 1, (u, v))
+                else:
+                    del pq_dict[u, v]
+
+        col_sets[col][sgn].update(all_old_pos)
+
+    num_edges = 0
+    while num_edges < N - 1:
+        (_, _), (x, y, (i, j)) = pq_dict.popitem()
+        assert i < j
+
+        # Otherwise, this edge may have created a cycle
+        if uf[i] != uf[j]:
+            differing_columns = set(col for col in range(sign_mat.shape[1])
+                                    if diff_signs(equiv_signs, equiv_sets, i, j, col))
+            hot_columns = differing_columns
+            merged_columns = set()
+
+            edges_forest_i, edges_forest_j = forest[uf[i]], forest[uf[j]]
+            new_root = uf.union(i, j)
+            forest[new_root] = edges_forest_i.union(edges_forest_j)
+            forest[new_root].add((i, j))
+            num_edges += 1
+
+            for col in range(sign_mat.shape[1]):
+                if mergeable(equiv_signs, equiv_sets, i, j, col):
+                    merged_columns.add(col)
+
+                    # If either of these is undecided, merge an equivalent sets.
+                    old_i_root, old_j_root = equiv_sets[i, col], equiv_sets[j, col]
+                    old_i_pos, old_j_pos = eq_set_pos[old_i_root], eq_set_pos[old_j_root]
+
+                    old_i_sign_set = old_i_root in equiv_signs
+                    old_j_sign_set = old_j_root in equiv_signs
+
+                    root = equiv_sets.union((i, col), (j, col))
+                    eq_set_pos[root] = old_i_pos.union(old_j_pos).union([i, j])
+
+                    if old_i_sign_set:
+                        equiv_signs[root] = equiv_signs[old_i_root]
+                        if not old_j_sign_set:
+                            update_col_sets(j, col, equiv_signs[root], old_j_pos)
+                    elif old_j_sign_set:
+                        equiv_signs[root] = equiv_signs[old_j_root]
+                        if not old_i_sign_set:
+                            update_col_sets(i, col, equiv_signs[root], old_i_pos)
+                    # if verbose:
+                    #     for row in range(N):
+                    #         eq_set = equiv_sets[row, col]
+                    #         if eq_set in equiv_signs:
+                    #             assert row in col_sets[col][equiv_signs[eq_set]]
+
+            if not min_avg:
+                # Minimize the worst case.
+                for col in differing_columns:
+                    for u_ in col_sets[col][1]:
+                        for v_ in col_sets[col][-1]:
+                            u, v = min(u_, v_), max(u_, v_)
+                            # Increase the contribution of this column in the weight
+                            if uf[u] != uf[v] and (u, v) in pq_dict:
+                                (wt, tie, (_, _)) = pq_dict[u, v]
+                                pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+
+                    # Double the weight of this column.
+                    probs[col] *= 2
+            else:
+                # raise NotImplementedError()
+                # # Minimize the average case.
+                # probs = [1 if col in differing_columns else 0
+                #          for col, p in enumerate(probs)]
+                # Not changing the probs at all.
+                pass
+
+            # to_drop = set()
+            # for u, v in pq_dict:
+            #     if uf[u] == uf[v]:
+            #         to_drop.add((u, v))
+            # for pair in to_drop:
+            #     del pq_dict[pair]
+
+            # This can probably be optimized further because update of the weights in
+            # this manner was required for the proof.
+            # It should be possible to reduce it since we are only doubling
+            # some entries in probs since the division does not change the order of
+            # any other entries in the matrices.
+            #
+            # As it stands, this is an O(M^2 * N) operation.
+
+            # params = [
+            #     (ii, jj, probs, equiv_sets, equiv_signs)
+            #     for ii in range(N)
+            #     for jj in range(ii + 1, N)
+            #     if uf[ii] != uf[jj]
+            #     # Optimization to avoid cycles: from O(N^2) => O((N - num_edges)^2) per iteration
+            # ]
+
+            if verbose:
+                cur_time = datetime.now()
+                print('edge = {}, hot_columns = {}, added: ({}, {}), (x, y) = ({}, {}), possible: {}, elapsed = {}sec'
+                      .format(num_edges, len(hot_columns), i, j, x, y, len(pq_dict), (cur_time - start_time).total_seconds()))
+
+            # if pool is None:
+            #     edges_heap = [_worker_spanning_tree(y) for y in params]
+            # else:
+            #     edges_heap = pool.map(_worker_spanning_tree, params)
+
+            # pq_dict.update({(u, v): (weight, tie, (u, v)) for (weight, tie, (u, v)) in edges_heap})
+
+            # if verbose:
+            #     for u in range(N):
+            #         for v in range(sign_mat.shape[1]):
+            #             if uf[u] == uf[v] and (u, v) in pq_dict:
+            #                 del pq_dict[u, v]
+
+            #     n_smallest = nsmallest(5, pq_dict)
+            #     print(sorted((pq_dict[k]) for k in n_smallest))
+            #     # print('differing_columns = ', differing_columns, 'merged columns = ', merged_columns)
+            #     print('***************\n')
+
+    return forest[uf[0]], equiv_sets, equiv_signs
+
+
+def make_graph(spanning_tree):
+    """Returns a networkx graph for the spanning tree."""
+    graph = nx.Graph()
+    graph.add_edges_from(spanning_tree)
+    return graph
 
 
 def get_M_full(M_sparse, equiv_sets, equiv_signs):
@@ -297,7 +542,11 @@ def get_M_full(M_sparse, equiv_sets, equiv_signs):
 
 
 def make_one_permut(spanning_tree, source=None):
-    """Creates a path from the spanning tree."""
+    """Creates a path from the spanning tree.
+
+    For M nodes, there can be any number of possible Eulerian paths, ranging
+    from 1 to (M - 1)!.
+    """
     G = nx.MultiGraph()
 
     # Adding two copies of the edges to 'G' to make it Eulerian.
