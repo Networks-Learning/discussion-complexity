@@ -194,6 +194,7 @@ def _worker_spanning_tree(params):
     ii, jj, probs, eq_sets_uf, eq_signs = params
     weight, tie = 0.0, 0.0
 
+    # Inlining the calculations of weight and tiebreaker for optimization.
     for col in range(len(probs)):
         sign_prod = eq_signs.get(eq_sets_uf[ii, col], 0) * eq_signs.get(eq_sets_uf[jj, col], 0)
 
@@ -316,7 +317,7 @@ def make_spanning_tree_old(sign_mat, min_avg=False, pool=None, verbose=False):
     return forest[uf[0]], equiv_sets, equiv_signs
 
 
-def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False):
+def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disable_tiebreaker=False):
     """Create a spanning tree."""
     uf = UnionFind()
 
@@ -379,33 +380,34 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False):
                 else:
                     del pq_dict[u, v]
 
-        loop_1_size = len(all_old_pos) * len(col_sets[col][sgn])
-        loop_2_size = len(pq_dict)
+        if not disable_tiebreaker:
+            loop_1_size = len(all_old_pos) * len(col_sets[col][sgn])
+            loop_2_size = len(pq_dict)
 
-        if loop_1_size < loop_2_size:
-            for u_ in col_sets[col][sgn]:
-                for v_ in all_old_pos:
-                    # These edges now have an additional matching
-                    # column.
-                    u, v = min(u_, v_), max(u_, v_)
-                    if uf[u] != uf[v] and (u, v) in pq_dict:
-                        (wt, tie, (_, _)) = pq_dict[u, v]
-                        pq_dict[u, v] = (wt, tie - 1, (u, v))
-        else:
-            set_1 = col_sets[col][-1 * sgn]
-            set_2 = all_old_pos
+            if loop_1_size < loop_2_size:
+                for u_ in col_sets[col][sgn]:
+                    for v_ in all_old_pos:
+                        # These edges now have an additional matching
+                        # column.
+                        u, v = min(u_, v_), max(u_, v_)
+                        if uf[u] != uf[v] and (u, v) in pq_dict:
+                            (wt, tie, (_, _)) = pq_dict[u, v]
+                            pq_dict[u, v] = (wt, tie - 1, (u, v))
+            else:
+                set_1 = col_sets[col][-1 * sgn]
+                set_2 = all_old_pos
 
-            if first_loop_2[1] and verbose:
-                print('Loop 2_2 triggered!')
-                first_loop_2[1] = False
+                if first_loop_2[1] and verbose:
+                    print('Loop 2_2 triggered!')
+                    first_loop_2[1] = False
 
-            for u, v in pq_dict:
-                if uf[u] != uf[v]:
-                    if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
-                        (wt, tie, (_, _)) = pq_dict[u, v]
-                        pq_dict[u, v] = (wt, tie - 1, (u, v))
-                else:
-                    del pq_dict[u, v]
+                for u, v in pq_dict:
+                    if uf[u] != uf[v]:
+                        if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
+                            (wt, tie, (_, _)) = pq_dict[u, v]
+                            pq_dict[u, v] = (wt, tie - 1, (u, v))
+                    else:
+                        del pq_dict[u, v]
 
         col_sets[col][sgn].update(all_old_pos)
 
