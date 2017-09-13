@@ -296,7 +296,7 @@ def make_spanning_tree_old(sign_mat, min_avg=False, pool=None, verbose=False):
 
             if verbose:
                 cur_time = datetime.now()
-                print('edge = {}, added: ({}, {}), (x, y) = ({}, {}), elapsed = {}sec'
+                print('edge = {}, added: ({}, {}), (x, y) = ({}, {}, {}), elapsed = {}sec'
                       .format(num_edges, i, j, x, y, (cur_time - start_time).total_seconds()))
 
             if pool is None:
@@ -336,7 +336,9 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
     for i, j in zip(*sign_mat.nonzero()):
         col_sets[j][equiv_signs[i, j]].add(i)
 
-    forest = defaultdict(lambda: set())
+    forest_edges = defaultdict(lambda: set())
+    # forest_nodes = defaultdict(lambda: set())
+
     probs = np.ones(sign_mat.shape[1])
     params = [(ii, jj, probs, equiv_sets, equiv_signs)
               for ii in range(N) for jj in range(ii + 1, N)]
@@ -346,7 +348,7 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
     else:
         edges_heap = pool.map(_worker_spanning_tree, params)
 
-    pq_dict = pqdict({(i, j): (x, y, (i, j)) for (x, y, (i, j)) in edges_heap})
+    pq_dict = pqdict({(i, j): (wt, wt, ties, (i, j)) for (wt, ties, (i, j)) in edges_heap})
 
     first_loop_2 = [True, True]
 
@@ -363,8 +365,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                     # column.
                     u, v = min(u_, v_), max(u_, v_)
                     if uf[u] != uf[v] and (u, v) in pq_dict:
-                        (wt, tie, (_, _)) = pq_dict[u, v]
-                        pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+                        (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt + probs[col], orig_wt, tie, (u, v))
         else:
             if first_loop_2[0] and verbose:
                 print('Loop 2_1 triggered!')
@@ -375,8 +377,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
             for u, v in pq_dict:
                 if uf[u] != uf[v]:
                     if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
-                        (wt, tie, (_, _)) = pq_dict[u, v]
-                        pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+                        (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
+                        pq_dict[u, v] = (wt + probs[col], orig_wt, tie, (u, v))
                 else:
                     del pq_dict[u, v]
 
@@ -391,8 +393,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                         # column.
                         u, v = min(u_, v_), max(u_, v_)
                         if uf[u] != uf[v] and (u, v) in pq_dict:
-                            (wt, tie, (_, _)) = pq_dict[u, v]
-                            pq_dict[u, v] = (wt, tie - 1, (u, v))
+                            (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
+                            pq_dict[u, v] = (wt, orig_wt, tie - 1, (u, v))
             else:
                 set_1 = col_sets[col][-1 * sgn]
                 set_2 = all_old_pos
@@ -404,8 +406,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                 for u, v in pq_dict:
                     if uf[u] != uf[v]:
                         if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
-                            (wt, tie, (_, _)) = pq_dict[u, v]
-                            pq_dict[u, v] = (wt, tie - 1, (u, v))
+                            (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
+                            pq_dict[u, v] = (wt, orig_wt, tie - 1, (u, v))
                     else:
                         del pq_dict[u, v]
 
@@ -413,7 +415,7 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
 
     num_edges = 0
     while num_edges < N - 1:
-        (_, _), (x, y, (i, j)) = pq_dict.popitem()
+        (_, _), (wt, orig_wt, ties, (i, j)) = pq_dict.popitem()
         assert i < j
 
         # Otherwise, this edge may have created a cycle
@@ -423,10 +425,30 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
             hot_columns = differing_columns
             merged_columns = set()
 
-            edges_forest_i, edges_forest_j = forest[uf[i]], forest[uf[j]]
+            edges_forest_i, edges_forest_j = forest_edges[uf[i]], forest_edges[uf[j]]
+            # nodes_forest_i, nodes_forest_j = forest_nodes[uf[i]], forest_nodes[uf[j]]
             new_root = uf.union(i, j)
-            forest[new_root] = edges_forest_i.union(edges_forest_j)
-            forest[new_root].add((i, j))
+
+            forest_edges[new_root] = edges_forest_i.union(edges_forest_j)
+            forest_edges[new_root].add((i, j))
+
+            # forest_nodes[new_root] = nodes_forest_i.union(nodes_forest_j)
+            # forest_nodes[new_root].add(i)
+            # forest_nodes[new_root].add(j)
+
+            # # Remove all the edges which can no longer be part of the spanning
+            # # tree.
+            # removed_edges = 0
+            # for u_ in nodes_forest_i:
+            #     for v_ in nodes_forest_j:
+            #         u, v = min(u_, v_), max(u_, v_)
+            #         if (u, v) in pq_dict:
+            #             del pq_dict[u, v]
+            #             removed_edges += 1
+
+            # if removed_edges and verbose:
+            #     print("{} edges removed.".format(removed_edges))
+
             num_edges += 1
 
             for col in range(sign_mat.shape[1]):
@@ -465,8 +487,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                             u, v = min(u_, v_), max(u_, v_)
                             # Increase the contribution of this column in the weight
                             if uf[u] != uf[v] and (u, v) in pq_dict:
-                                (wt, tie, (_, _)) = pq_dict[u, v]
-                                pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+                                (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
+                                pq_dict[u, v] = (wt + probs[col], orig_wt, tie, (u, v))
 
                     # Double the weight of this column.
                     probs[col] *= 2
@@ -503,8 +525,8 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
 
             if verbose:
                 cur_time = datetime.now()
-                print('edge = {}, hot_columns = {}, added: ({}, {}), (x, y) = ({}, {}), possible: {}, elapsed = {}sec'
-                      .format(num_edges, len(hot_columns), i, j, x, y, len(pq_dict), (cur_time - start_time).total_seconds()))
+                print('edge = {}, hot_columns = {}, added: ({}, {}), (wt, orig_wt, ties) = ({}, {}, {}), possible: {}, elapsed = {}sec'
+                      .format(num_edges, len(hot_columns), i, j, wt, orig_wt, ties, len(pq_dict), (cur_time - start_time).total_seconds()))
 
             # if pool is None:
             #     edges_heap = [_worker_spanning_tree(y) for y in params]
@@ -524,7 +546,94 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
             #     # print('differing_columns = ', differing_columns, 'merged columns = ', merged_columns)
             #     print('***************\n')
 
-    return forest[uf[0]], equiv_sets, equiv_signs
+    return forest_edges[uf[0]], equiv_sets, equiv_signs
+
+
+def make_spanning_tree_full(full_sign_mat, min_avg=False, pool=None, verbose=False):
+    """Create a spanning tree for a full sign matrix."""
+    uf = UnionFind()
+
+    start_time = datetime.now()
+
+    N = full_sign_mat.shape[0]
+    n_cols = full_sign_mat.shape[1]
+
+    for v in range(N):
+        uf.union(v)
+
+    forest = defaultdict(lambda: set())
+    probs = np.ones(n_cols)
+    equiv_signs = full_sign_mat
+
+    params = [(ii, jj) for ii in range(N) for jj in range(ii + 1, N)]
+
+    global _worker_spanning_tree_full
+
+    def _worker_spanning_tree_full(params):
+        """Worker which does the spanning tree work."""
+        ii, jj, = params
+        weight, tie = 0.0, 0.0
+
+        # Inlining the calculations of weight and tiebreaker for optimization.
+        for col in range(len(probs)):
+            sign_prod = equiv_signs[ii, col] * equiv_signs[jj, col]
+
+            if sign_prod == -1:
+                weight += probs[col]
+            elif sign_prod == 1:
+                tie -= 1.0
+
+        return (weight, tie, (ii, jj))
+
+    if pool is None:
+        edges_heap = [_worker_spanning_tree_full(x) for x in params]
+    else:
+        edges_heap = pool.map(_worker_spanning_tree_full, params)
+
+    col_sets = [{1: set(np.where(full_sign_mat[:, col] == 1)[0]),
+                 -1: set(np.where(full_sign_mat[:, col] == -1)[0])}
+                for col in range(n_cols)]
+
+    # for i, j in zip(*sign_mat.nonzero()):
+    #     col_sets[j][equiv_signs[i, j]].add(i)
+
+    pq_dict = pqdict({(i, j): (x, y, (i, j)) for (x, y, (i, j)) in edges_heap})
+
+    num_edges = 0
+    while num_edges < N - 1:
+        (_, _), (x, y, (i, j)) = pq_dict.popitem()
+
+        if uf[i] != uf[j]:
+            differing_columns = set(col for col in range(n_cols)
+                                    if full_sign_mat[i, col] != full_sign_mat[j, col])
+
+            edges_forest_i, edges_forest_j = forest[uf[i]], forest[uf[j]]
+            new_root = uf.union(i, j)
+            forest[new_root] = edges_forest_i.union(edges_forest_j)
+            forest[new_root].add((i, j))
+            num_edges += 1
+
+            if not min_avg:
+                for col in differing_columns:
+                    for u_ in col_sets[col][1]:
+                        for v_ in col_sets[col][-1]:
+                            u, v = min(u_, v_), max(u_, v_)
+                            if uf[u] != uf[v] and (u, v) in pq_dict:
+                                (wt, tie, (_, _)) = pq_dict[u, v]
+                                # Double the weight
+                                pq_dict[u, v] = (wt + probs[col], tie, (u, v))
+
+                    # Double the weight of this column.
+                    probs[col] *= 2
+            else:
+                pass
+
+            if verbose:
+                cur_time = datetime.now()
+                print('edge = {}, hot_columns = {}, added: ({}, {}), (x, y) = ({}, {}), possible: {}, elapsed = {}sec'
+                      .format(num_edges, len(differing_columns), i, j, x, y, len(pq_dict), (cur_time - start_time).total_seconds()))
+
+    return forest[uf[0]]
 
 
 def make_graph(spanning_tree):
