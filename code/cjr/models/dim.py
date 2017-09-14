@@ -1,7 +1,7 @@
 import z3
 import numpy as np
 import networkx as nx
-from pqdict import pqdict, nsmallest
+from pqdict import pqdict
 import scipy as sp
 from UnionFind import UnionFind
 from datetime import datetime
@@ -701,3 +701,102 @@ def SC(M_full, permut):
             sc = col_sc
 
     return sc, max_cols
+
+
+### Polynomial algorithm to figure out if minrank(S) <= 2
+
+def make_S_prime_full(S_full, as_set=False):
+    """Creates S_prime given an S sign matrix.
+    This is used as a routine inside check_minrank_full.
+    """
+    S = np.sign(S_full).copy()  # TODO: One extra copy?
+
+    # Making the first column of S all +1
+    for row in range(S.shape[0]):
+        if S[row, 0] == -1:
+            S[row, :] *= -1
+
+    # Get rid of duplicate rows
+    S = np.unique(S, axis=0)
+
+    # Get rid of duplicate columns
+    S = np.unique(S, axis=1)
+
+    # Add missing complements to S
+    n_rows, n_cols = S.shape
+
+    col_to_sign = {tuple(S[:, col]) for col in range(n_cols)}
+
+    missing_complements = []
+    for col in range(n_cols):
+        col_sign_complement = tuple(-1 * S[:, col])
+        if col_sign_complement not in col_to_sign:
+            missing_complements.append(col_sign_complement)
+
+    # Creating S_prime
+    if not as_set:
+        S_prime = np.zeros((n_rows, len(missing_complements) + n_cols))
+        S_prime[:, :n_cols] = S
+        S_prime[:, n_cols:] = np.asarray(missing_complements).T
+        return S_prime
+    else:
+        return col_to_sign.union(missing_complements)
+
+
+def check_minrank_low_full(S_full):
+    """Calculates whether the sign-rank(S) <= 2 or not in polynomial time.
+    The matrix S needs to be full (i.e. no missing data).
+    """
+    S_prime = make_S_prime_full(S_full)
+    n_rows, n_cols = S_prime.shape
+
+    S_prime_set = {tuple(S_prime[:, i]) for i in range(n_cols)}
+
+    # print(S_prime_set)
+    # A_seq = sorted(S_prime_set, reverse=True, key=lambda x: sum(1 for y in x if y == -1))
+
+    k = len(S_prime_set) / 2
+
+    assert int(k) == k
+
+    i = 2
+    Ai = set()
+    Ais = [Ai]
+    while i <= k + 1:
+        A_min_len = 0
+        A_mins = []
+        min_col = None
+
+        for col in S_prime_set:
+            minus_locs = {idx for idx, s in enumerate(col) if s == -1}
+
+            if Ai.issubset(minus_locs) and len(minus_locs) > len(Ai):
+                if A_min_len > len(minus_locs) or len(A_mins) == 0:
+                    A_mins = [minus_locs]
+                    A_min_len = len(minus_locs)
+                    min_col = col
+                elif A_min_len == len(minus_locs):
+                    A_mins.append(minus_locs)
+
+        if len(A_mins) > 1 or len(A_mins) == 0:
+            # More than one candidate or no candidate was found.
+            # => The min-rank is greater than 2
+            if i == 2:
+                # Breaking the tie for A_2
+                pass
+            else:
+                print(A_mins, k, i)
+                return False, Ais, S_prime_set
+
+        A_min = A_mins[0]
+
+        if len(A_min) == S_full.shape[0] and i < k:
+            # All indexes have already been covered.
+            return False, Ais, S_prime_set
+
+        S_prime_set.remove(min_col)
+        Ai = A_min
+        Ais.append(Ai)
+        i += 1
+
+    return True, Ais, S_prime_set
