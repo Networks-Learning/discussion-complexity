@@ -8,7 +8,8 @@ import multiprocessing as MP
 @click.command()
 @click.argument('in_file', type=click.Path(exists=True))
 @click.option('--cpus', help='How many CPUs to use.', type=int, default=-1)
-def cmd(in_file, cpus):
+@click.option('--timeout', help='Time after which to give up (ms).', type=int, default=10 * 1000)
+def cmd(in_file, cpus, timeout):
     """Reads data from IN_FILE with the following format:
 
             comment_tree_id, commenter_id, voter_id, vote_type
@@ -32,11 +33,15 @@ def cmd(in_file, cpus):
         M = D.make_M_from_df(df=df, comment_tree_id=comment_tree_id)
         voting_pats = D.sign_mat_to_voting_pats(M)
 
+        unique_voting_pats = list(set(tuple(x) for x in voting_pats))
+
         ctx = z3.Context()
         prob, _, _ = D.create_z3_prob(ctx=ctx, n_dim=2,
-                                      voting_patterns=voting_pats)
+                                      voting_patterns=unique_voting_pats)
+        prob.set('timeout', timeout)
+        res = prob.check()
         return {'comment_tree_id': comment_tree_id,
-                '2D_sat': prob.check().r == 1}
+                '2D_sat': str(res)}
 
     with MP.Pool(processes=cpus) as pool:
         data = pool.map(_worker, range(len(comment_tree_ids)))
