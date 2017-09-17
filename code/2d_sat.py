@@ -12,12 +12,14 @@ import multiprocessing as MP
 def cmd(in_file, cpus, timeout):
     """Reads data from IN_FILE with the following format:
 
-            comment_tree_id, commenter_id, voter_id, vote_type
-            1, 200, 3000, 1
-            1, 201, 3000, -1
-            ...
+       comment_tree_id, commenter_id, voter_id, vote_type\n
+       1, 200, 3000, 1\n
+       1, 201, 3000, -1\n
+       ...\n
 
-    Outputs a csv which contains whether the comment-tree had a sign-rank of 2 or not.
+    Outputs a CSV which contains whether the comment-tree had a sign-rank of 2 or not.
+
+    Redirect output to a file to save it.
     """
     df = pd.read_csv(in_file)
     comment_tree_ids = df.comment_tree_id.unique()
