@@ -63,9 +63,9 @@ def sign_mat_to_voting_pats(M):
     """Convert the given matrix to voting patterns."""
     n_rows, n_cols = M.shape
     pat_arr = []
-    for i in range(n_rows):
+    for j in range(n_cols):
         pat_row = []
-        for j in range(n_cols):
+        for i in range(n_rows):
             if M[i, j] == 0:
                 pat_row.append(None)
             elif M[i, j] > 0:
