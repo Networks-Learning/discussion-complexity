@@ -6,9 +6,9 @@ from pqdict import pqdict
 import scipy as sp
 
 try:
-    from UnionFind import UnionFind
+    from unionfind import UnionFind
 except:
-    from ..utils.UnionFind import UnionFind
+    from ..utils.unionfind import UnionFind
 
 from datetime import datetime
 from collections import defaultdict
@@ -722,6 +722,9 @@ def make_one_permut(spanning_tree, source=None):
 
     For M nodes, there can be any number of possible Eulerian paths, ranging
     from 1 to (M - 1)!.
+
+    TODO: Christofide's algorithm can be used here for the spanning tree to
+    Eulerian path reduction.
     """
     G = nx.MultiGraph()
 
