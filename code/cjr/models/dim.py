@@ -36,8 +36,12 @@ def to_pattern(vote_str):
 
 def to_str(pattern):
     """Converts a True/None/False array into a string."""
-    return ''.join(['+' if p is True else '-' if p is False else 'o'
-                    for p in pattern])
+    if isinstance(pattern[0], bool):
+        return ''.join(['+' if p is True else '-' if p is False else 'o'
+                        for p in pattern])
+    else:
+        return ''.join(['+' if p > 0 else '-' if p < 0 else 'o'
+                        for p in pattern])
 
 
 def mk_vars(num_dims, num_comments, num_voters, ctx=None):
