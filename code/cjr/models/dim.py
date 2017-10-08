@@ -11,7 +11,7 @@ except:
     from ..utils.unionfind import UnionFind
 
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import heapq as PQ
 import warnings
 
@@ -1042,17 +1042,18 @@ def fill_randomly_low_rank(S, verbose=False, guesses=None):
     if not res:
         if verbose:
             print("S is not minrank.")
-        return False, None, None
+        return False, guesses, S_
 
-    res, S__ = check_3_col_low_rank(S_, verbose=False)
+    res, S__ = check_3_col_low_rank(S_.T, verbose=False)
+    S__ = S__.T
 
     if not res:
         if verbose:
-            print("S is not minrank.")
-        return False, None
+            print("S_ is not minrank.")
+        return False, guesses, S__
 
     if guesses is None:
-        guesses = {}
+        guesses = OrderedDict()
 
     if S__.nonzero()[0].shape == np.prod(S.shape):
         return True, guesses, S__
@@ -1060,7 +1061,7 @@ def fill_randomly_low_rank(S, verbose=False, guesses=None):
     # Pick first location
     x, y = np.argwhere(S__ == 0)[0]
 
-    S_guess = S.copy()
+    S_guess = S__.copy()
     S_guess[x, y] = 1
     guesses[x, y] = 1
     res, guesses_, S_filled = fill_randomly_low_rank(S_guess, verbose=verbose,
@@ -1076,10 +1077,7 @@ def fill_randomly_low_rank(S, verbose=False, guesses=None):
         res, guesses_, S_filled = fill_randomly_low_rank(S_guess, verbose=verbose,
                                                          guesses=guesses)
 
-    if not res:
-        return False, None, None
-    else:
-        return True, guesses_, S_filled
+    return res, guesses_, S_filled
 
 
 def check_minrank_low(S, seed=99, verbose=False):
@@ -1317,6 +1315,41 @@ def test_lowrank(seed, verbose=False):
 
     if is_sparse_lowrank and dim <= 2 and root_node_idx > 0:
         print("root_node_idx = {} for seed = {}".format(root_node_idx, seed))
+
+    return seed, "OK"
+
+
+def test_lowrank_3_fill(seed, verbose=False):
+    """Testing lowrank implementations."""
+
+    dim, M, M_full = _make_test_lowrank_params(seed=seed)
+
+    if verbose:
+        print('Dim = {}, Shape = {}'.format(dim, M.shape))
+
+    is_sparse_lowrank, guesses, M_arbit_filled = fill_randomly_low_rank(M.toarray(), verbose=verbose)
+    is_full_lowrank, _, _ = check_minrank_low_full(M_full)
+
+    if is_full_lowrank and dim > 2:
+        print("false positive at seed = ", seed)
+        return seed, "false positive"
+    elif not is_full_lowrank and dim <= 2:
+        print("false negative at seed = ", seed)
+        return seed, "false negative"
+
+    if is_sparse_lowrank and dim > 2:
+        print('false positive in sparse at seed = ', seed, ' dim = ', M_arbit_filled.shape, ' guesses = ', guesses)
+        is_filled_lowrank, _, _ = check_minrank_low_full(M_arbit_filled)
+        if not is_filled_lowrank:
+            print('filled matrix not low-rank at seed = ', seed)
+            return seed, "error in filling"
+        return seed, "sparse false positive"
+    elif not is_sparse_lowrank and dim <= 2:
+        print("false negative in sparse at seed = ", seed, ' dims = ', M_arbit_filled.shape, M.shape)
+        return seed, "sparse false negative"
+
+    if not is_sparse_lowrank and dim >= 2 and len(guesses) > 0:
+        print("guesses needed = {} for seed = {}".format(guesses, seed))
 
     return seed, "OK"
 
