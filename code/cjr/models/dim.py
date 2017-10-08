@@ -1331,10 +1331,12 @@ def test_lowrank_3_fill(seed, verbose=False):
     is_full_lowrank, _, _ = check_minrank_low_full(M_full)
 
     if is_full_lowrank and dim > 2:
-        print("false positive at seed = ", seed)
+        print("false positive at seed = {}, dim = {}, shape = {}"
+              .format(seed, dim, M.shape))
         return seed, "false positive"
     elif not is_full_lowrank and dim <= 2:
-        print("false negative at seed = ", seed)
+        print("false negative at seed = {}, dim = {}, shape = {}"
+              .format(seed, dim, M.shape))
         return seed, "false negative"
 
     if is_sparse_lowrank and dim > 2:
@@ -1349,7 +1351,8 @@ def test_lowrank_3_fill(seed, verbose=False):
         return seed, "sparse false negative"
 
     if not is_sparse_lowrank and dim >= 2 and len(guesses) > 0:
-        print("guesses needed = {} for seed = {}".format(guesses, seed))
+        print("guesses needed = {} for seed = {}, dim = {}, shape = {]"
+              .format(guesses, seed, dim, M.shape))
 
     return seed, "OK"
 
