@@ -947,6 +947,141 @@ def get_plus_locs(M, col):
     return {idx for idx in range(M.shape[0]) if M[idx, col] == +1}
 
 
+def check_3_col_low_rank(S, verbose=False):
+    """Takes three columns and determines if they have a low dimension.
+    Only works for full rank matrices.
+    """
+    # Step 1: Find all sign-patterns in the first two column which have
+    #         different signs in the third column.
+    # Step 2: Check if the number of unique sign-patterns is either 1, or 2 but
+    #         the sign patterns are complements of each other.
+    n_rows, n_cols = S.shape
+
+    changed = False
+    contradiction = False
+
+    S = S.copy()
+    for i in range(n_cols):
+        for j in range(i + 1, n_cols):
+            for k in range(n_cols):
+                if k == i or k == j:
+                    # i, j, k must be distinct columns.
+                    continue
+
+                # Full patterns where the kth column is +
+                pos_set = set((S[row, i], S[row, j])
+                              for row in range(n_rows)
+                              if S[row, k] > 0 and S[row, i] * S[row, j] != 0)
+
+                # Full patterns where the kth column is -
+                neg_set = set((S[row, i], S[row, j])
+                              for row in range(n_rows)
+                              if S[row, k] < 0 and S[row, i] * S[row, j] != 0)
+
+                split_pats = (pos_set.intersection(neg_set)
+                              .union((x, y) for x, y in pos_set if (-x, -y) in pos_set)
+                              .union((x, y) for x, y in neg_set if (-x, -y) in neg_set))
+
+                if len(split_pats) > 0:
+                    # Add complements of the patterns to the set.
+                    split_pats = split_pats.union({(-x, -y) for x, y in split_pats})
+
+                if len(split_pats) == 0:
+                    # Could not find any patterns in (i, j) which were "split" by column k
+                    continue
+                elif len(split_pats) > 2:
+                    # Found more than one split pattern
+                    contradiction = True
+                    break # Break out of k
+                else:
+                    # Now we can pattern match and fill in S for all patterns
+                    # except the split_pats we have found.
+                    if verbose:
+                        print('Split patterns = {}, ({}, {}, {})'
+                              .format(list(map(to_str, split_pats)), i, j, k))
+
+                    pat_match = {}
+                    for x, y, z in zip(S[:, i], S[:, j], S[:, k]):
+                        if x * y * z != 0:
+                            if (x, y) not in split_pats:
+                                pat_match[x, y] = z
+                                pat_match[-x, -y] = -z
+
+                    for row in range(n_rows):
+                        x, y = S[row, i], S[row, j]
+                        if (x, y) in pat_match and S[row, k] == 0:
+
+                            if verbose:
+                                print('Changing [{}, {}] to {}'
+                                      .format(row, k, pat_match[x, y]))
+
+                            S[row, k] = pat_match[x, y]
+                            changed = True
+
+            if contradiction:
+                break # Break out of j
+
+        if contradiction:
+            break # Break out of i
+
+    if contradiction:
+        if verbose:
+            print('(i, j, k) = ({}, {}, {}); split_pats = {}'
+                  .format(i, j, k, list(map(to_str, split_pats))))
+        return False, S
+    elif changed:
+        return check_3_col_low_rank(S, verbose=verbose)
+    else:
+        return True, S
+
+
+def fill_randomly_low_rank(S, verbose=False, guesses=None):
+    """Use the low rank assumption to fill in the given sparse matrix."""
+    res, S_ = check_3_col_low_rank(S, verbose=False)
+
+    if not res:
+        if verbose:
+            print("S is not minrank.")
+        return False, None, None
+
+    res, S__ = check_3_col_low_rank(S_, verbose=False)
+
+    if not res:
+        if verbose:
+            print("S is not minrank.")
+        return False, None
+
+    if guesses is None:
+        guesses = {}
+
+    if S__.nonzero()[0].shape == np.prod(S.shape):
+        return True, guesses, S__
+
+    # Pick first location
+    x, y = np.argwhere(S__ == 0)[0]
+
+    S_guess = S.copy()
+    S_guess[x, y] = 1
+    guesses[x, y] = 1
+    res, guesses_, S_filled = fill_randomly_low_rank(S_guess, verbose=verbose,
+                                                     guesses=guesses)
+
+    if not res:
+        # Since 1 did not work, use -1 instead.
+        if verbose:
+            print('Branch mispredict!')
+
+        S_guess[x, y] = -1
+        guesses[x, y] = -1
+        res, guesses_, S_filled = fill_randomly_low_rank(S_guess, verbose=verbose,
+                                                         guesses=guesses)
+
+    if not res:
+        return False, None, None
+    else:
+        return True, guesses_, S_filled
+
+
 def check_minrank_low(S, seed=99, verbose=False):
     """Checks whether there is a completion of matrix S such that minrank(S) <= 2."""
     # First need to ensure that all the columns have their complements.
