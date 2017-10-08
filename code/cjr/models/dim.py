@@ -860,7 +860,7 @@ def check_minrank_low_full(S_full):
                 # Breaking the tie for A_2
                 pass
             else:
-                print(A_mins, k, i)
+                # print(A_mins, k, i)
                 return False, Ais, S_prime
 
         A_min = A_mins[0]
@@ -1338,7 +1338,7 @@ def test_lowrank_3_fill(seed, verbose=False):
         return seed, "false negative"
 
     if is_sparse_lowrank and dim > 2:
-        print('false positive in sparse at seed = ', seed, ' dim = ', M_arbit_filled.shape, ' guesses = ', guesses)
+        print('false positive in sparse at seed = ', seed, ' dim = ', M_arbit_filled.shape)
         is_filled_lowrank, _, _ = check_minrank_low_full(M_arbit_filled)
         if not is_filled_lowrank:
             print('filled matrix not low-rank at seed = ', seed)
