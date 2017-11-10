@@ -5,11 +5,30 @@ import click
 import pandas as pd
 import multiprocessing as MP
 
+def make_canonical_df(csv_df):
+    """Turn the csv df into a df with columns:
+
+    'comment_tree_id', 'comment_id', 'voter_id', 'vote_type'.
+    """
+    canon_df = csv_df.rename(columns={'r.reply_to': 'comment_tree_id',
+                                      'r.message_id': 'comment_id',
+                                      'r.uid_alias': 'voter_id',
+                                      'r.vote_type': 'vote_type'})
+
+    canon_df['vote_type'].replace(['UP', 'DOWN'], [1, -1], inplace=True)
+    canon_df['comment_tree_id'] = (canon_df['comment_tree_id']
+                                   .where(~canon_df['comment_tree_id'].isnull(),
+                                          canon_df['comment_id']))
+    canon_df = canon_df[~canon_df['vote_type'].isnull()]
+    return canon_df
+
+
 @click.command()
 @click.argument('in_file', type=click.Path(exists=True))
 @click.option('--cpus', help='How many CPUs to use.', type=int, default=-1)
 @click.option('--timeout', help='Time after which to give up (ms).', type=int, default=10 * 1000)
-def cmd(in_file, cpus, timeout):
+@click.option('--real/--no-real', help='Assume format of real-data.', default=False)
+def cmd(in_file, cpus, timeout, real):
     """Reads data from IN_FILE with the following format:
 
        comment_tree_id, commenter_id, voter_id, vote_type\n
@@ -21,8 +40,14 @@ def cmd(in_file, cpus, timeout):
 
     Redirect output to a file to save it.
     """
-    df = pd.read_csv(in_file)
-    comment_tree_ids = df.comment_tree_id.unique()
+
+    if real:
+        df = pd.read_csv(in_file, sep='\t')
+        df = make_canonical_df(df)
+    else:
+        df = pd.read_csv(in_file)
+
+    comment_tree_ids = df.comment_tree_id.dropna().unique()
 
     if cpus == -1:
         cpus = None
