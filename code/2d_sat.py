@@ -31,10 +31,19 @@ def make_canonical_df(csv_df):
 def cmd(in_file, cpus, timeout, real):
     """Reads data from IN_FILE with the following format:
 
-       comment_tree_id, commenter_id, voter_id, vote_type\n
-       1, 200, 3000, 1\n
-       1, 201, 3000, -1\n
-       ...\n
+       \b
+       comment_tree_id, commenter_id, voter_id, vote_type
+       1, 200, 3000, 1
+       1, 201, 3000, -1
+       ...
+
+       or (in case of real data):
+
+       \b
+       r.reply_to\t r.message_id\t r.uid_alias\t r.vote_type
+       1\t 200\t 3000\t UP
+       1\t 201\t 3000\t DOWN
+       ...
 
     Outputs a CSV which contains whether the comment-tree had a sign-rank of 2 or not.
 
