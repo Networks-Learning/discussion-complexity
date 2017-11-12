@@ -193,3 +193,26 @@ def format_axes(ax, polar=None):
 
     return ax
 
+
+def make_canonical_df(csv_df):
+    """Turn the csv df into a df with columns:
+
+    'comment_tree_id', 'comment_id', 'voter_id', 'vote_type'.
+    """
+    canon_df = csv_df.rename(columns={'r.reply_to': 'comment_tree_id',
+                                      'r.message_id': 'comment_id',
+                                      'r.uid_alias': 'voter_id',
+                                      'r.vote_type': 'vote_type'})
+
+    canon_df['vote_type'].replace(['UP', 'DOWN'], [1, -1], inplace=True)
+    canon_df['comment_tree_id'] = (canon_df['comment_tree_id']
+                                   .where(~canon_df['comment_tree_id'].isnull(),
+                                          canon_df['comment_id']))
+    canon_df = canon_df[~canon_df['vote_type'].isnull()]
+    return canon_df
+
+
+def remove_dups(df):
+    """Remove duplicate (comment_id, voter_id) pairs, deciding vote_type
+    by picking the first occurrence."""
+    return df.groupby(['comment_id', 'voter_id']).first().reset_index()
