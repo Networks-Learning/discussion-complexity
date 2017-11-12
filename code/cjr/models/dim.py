@@ -1264,8 +1264,8 @@ def make_M_from_df(df, comment_tree_id):
     """
     df = df[df.comment_tree_id == comment_tree_id]
 
-    voters = {v: idx for idx, v in enumerate(df.voter_id.unique())}
-    comments = {v: idx for idx, v in enumerate(df.comment_id.unique())}
+    voters = {v: idx for idx, v in enumerate(sorted(df.voter_id.unique()))}
+    comments = {v: idx for idx, v in enumerate(sorted(df.comment_id.unique()))}
 
     M = sp.sparse.lil_matrix((len(comments), len(voters)), dtype='int8')
     for v_id, c_id, vote in df[['voter_id', 'comment_id', 'vote_type']].values:
@@ -1355,4 +1355,3 @@ def test_lowrank_3_fill(seed, verbose=False):
               .format(guesses, seed, dim, M.shape))
 
     return seed, "OK"
-
