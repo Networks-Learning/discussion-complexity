@@ -12,7 +12,8 @@ import multiprocessing as MP
 @click.option('--cpus', help='How many CPUs to use.', type=int, default=-1)
 @click.option('--timeout', help='Time after which to give up (ms).', type=int, default=10 * 1000)
 @click.option('--real/--no-real', help='Assume format of real-data.', default=False)
-def cmd(in_file, cpus, timeout, real):
+@click.option('--improve', default=None, help='Improve the results from the provided file. Will only run for `unknown` ids in the file.', type=click.Path(exists=True))
+def cmd(in_file, cpus, timeout, real, improve):
     """Reads data from IN_FILE with the following format:
 
        \b
@@ -41,7 +42,11 @@ def cmd(in_file, cpus, timeout, real):
     else:
         df = pd.read_csv(in_file)
 
-    comment_tree_ids = df.comment_tree_id.dropna().unique()
+    if improve is not None:
+        old_results = pd.read_csv(improve)
+        comment_tree_ids = old_results['comment_tree_id'][old_results['2D_sat'] == 'unknown'].values
+    else:
+        comment_tree_ids = df.comment_tree_id.dropna().unique().values
 
     if cpus == -1:
         cpus = None
