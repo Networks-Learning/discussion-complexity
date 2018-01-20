@@ -1243,13 +1243,12 @@ def check_minrank_low(S, seed=99, verbose=False):
     # # return len(Ais[-1]) == n_rows and len(Ais) == k, Ais, S_prime
     # return len(Ais) >= k, Ais, S_prime
 
-
-def make_df_from_M(comment_tree_id, M):
-    """Returns a data-frame with the given comment tree-id."""
+def make_df_from_M_generic(key_name, key_value, M):
+    """Returns a data-frame with the given key, value pair."""
     data = []
     for c, v in zip(*M.nonzero()):
         data.append({
-            'comment_tree_id': comment_tree_id,
+            key_name: key_value,
             'comment_id': c,
             'voter_id': v,
             'vote_type': np.sign(M[c, v])
@@ -1258,11 +1257,16 @@ def make_df_from_M(comment_tree_id, M):
     return pd.DataFrame.from_dict(data)
 
 
-def make_M_from_df(df, comment_tree_id):
-    """Creates a M matrix from the comment_tree.
-    Returns a sparse matrix in the LIL format.
-    """
-    df = df[df.comment_tree_id == comment_tree_id]
+def make_df_from_M(comment_tree_id, M):
+    """Returns a data-frame with the given comment tree-id."""
+    return make_df_from_M_generic(key_name='comment_tree_id',
+                                  key_value=comment_tree_id,
+                                  M=M)
+
+
+def make_M_from_df_generic(df, key_name, key_value):
+    """Creates a M matrix from the key_{name,value} pair."""
+    df = df[df[key_name] == key_value]
 
     voters = {v: idx for idx, v in enumerate(sorted(df.voter_id.unique()))}
     comments = {v: idx for idx, v in enumerate(sorted(df.comment_id.unique()))}
@@ -1272,6 +1276,15 @@ def make_M_from_df(df, comment_tree_id):
         M[comments[c_id], voters[v_id]] = vote
 
     return M
+
+
+def make_M_from_df(df, comment_tree_id):
+    """Creates a M matrix from the comment_tree.
+    Returns a sparse matrix in the LIL format.
+    """
+    return make_M_from_df_generic(df,
+                                  key_name='comment_tree_id',
+                                  key_value=comment_tree_id)
 
 
 def _make_test_lowrank_params(seed):

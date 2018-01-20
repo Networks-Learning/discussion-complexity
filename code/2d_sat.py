@@ -9,11 +9,14 @@ import multiprocessing as MP
 
 @click.command()
 @click.argument('in_file', type=click.Path(exists=True))
+@click.option('--dims', 'n_dims', help='What dimensional embedding to test for?', type=int, default=2)
 @click.option('--cpus', help='How many CPUs to use.', type=int, default=-1)
 @click.option('--timeout', help='Time after which to give up (ms).', type=int, default=10 * 1000)
 @click.option('--real/--no-real', help='Assume format of real-data.', default=False)
 @click.option('--improve', default=None, help='Improve the results from the provided file. Will only run for `unknown` ids in the file.', type=click.Path(exists=True))
-def cmd(in_file, cpus, timeout, real, improve):
+@click.option('--context-id/--no-context-id', 'use_contextId', default=False, help='Use the contextId instead of comment_tree_id.')
+@click.option('--nrows', default=-1, help='Number of rows from the CSV to read.')
+def cmd(in_file, n_dims, cpus, timeout, real, improve, use_contextId, nrows):
     """Reads data from IN_FILE with the following format:
 
        \b
@@ -30,23 +33,38 @@ def cmd(in_file, cpus, timeout, real, improve):
        1\t 201\t 3000\t DOWN
        ...
 
-    Outputs a CSV which contains whether the comment-tree had a sign-rank of 2 or not.
+       of (in case of merged data):
+
+       \b
+       comment_id,voter_id,comment_tree_id,vote_type,r.abuse_vote,m.uid_alias,m.created_at,context_id,message_id,namespace,description,url,comment,lang
+       0,r0,u130560,r0,1.0,,u217409,1502981871,65955347-9893-3f4a-8ed8-a3b4f0231d97,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
+       1,r0,u139294,r0,1.0,,u217409,1502981871,65955347-9893-3f4a-8ed8-a3b4f0231d97,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
+       2,r0,u192096,r0,1.0,,u217409,1502981871,65955347-9893-3f4a-8ed8-a3b4f0231d97,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
+       ...
+
+    Outputs a CSV which contains whether the comment/article-tree had a sign-rank of 2 or not.
 
     Redirect output to a file to save it.
     """
 
+    if nrows < 0:
+        nrows = None
+
     if real:
-        df = pd.read_csv(in_file, sep='\t')
+        df = pd.read_csv(in_file, sep='\t', nrows=nrows)
         df = U.make_canonical_df(df)
         df = U.remove_dups(df)
     else:
-        df = pd.read_csv(in_file)
+        # Works for both merged data as well as synthetic data.
+        df = pd.read_csv(in_file, nrows=nrows)
+
+    key = 'context_id' if use_contextId else 'comment_tree_id'
 
     if improve is not None:
         old_results = pd.read_csv(improve)
-        comment_tree_ids = old_results['comment_tree_id'][old_results['2D_sat'] == 'unknown'].values
+        key_ids = old_results[key][old_results['2D_sat'] == 'unknown'].values
     else:
-        comment_tree_ids = df.comment_tree_id.dropna().unique().values
+        key_ids = df[key].dropna().unique()
 
     if cpus == -1:
         cpus = None
@@ -54,23 +72,23 @@ def cmd(in_file, cpus, timeout, real, improve):
     # Hack to make 'df' available in the environment of _worker without passing
     # it via pickling.
     global _worker
-    def _worker(comment_tree_idx):
-        comment_tree_id = comment_tree_ids[comment_tree_idx]
-        M = D.make_M_from_df(df=df, comment_tree_id=comment_tree_id)
+    def _worker(key_idx):
+        k_id = key_ids[key_idx]
+        M = D.make_M_from_df_generic(df=df, key_name=key, key_value=k_id)
         voting_pats = D.sign_mat_to_voting_pats(M)
 
         unique_voting_pats = list(set(tuple(x) for x in voting_pats))
 
         ctx = z3.Context()
-        prob, _, _ = D.create_z3_prob(ctx=ctx, n_dim=2,
+        prob, _, _ = D.create_z3_prob(ctx=ctx, n_dim=n_dims,
                                       voting_patterns=unique_voting_pats)
         prob.set('timeout', timeout)
         res = prob.check()
-        return {'comment_tree_id': comment_tree_id,
-                '2D_sat': str(res)}
+        return {key: k_id,
+                '{}D_sat'.format(n_dims): str(res)}
 
     with MP.Pool(processes=cpus) as pool:
-        data = pool.map(_worker, range(len(comment_tree_ids)))
+        data = pool.map(_worker, range(len(key_ids)))
 
     out_df = pd.DataFrame.from_dict(data)
     print(out_df.to_csv(index=False))
