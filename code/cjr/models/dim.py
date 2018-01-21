@@ -92,10 +92,12 @@ def create_prob(n_dim, voting_patterns, ctx=None):
     com_vars, voter_vars = mk_vars(n_dim, n_comments, n_voters, ctx=ctx)
     s = z3.Solver(ctx=ctx)
 
+    cstr_added = set()
     for v_idx, pat in enumerate(voting_patterns):
         for c_idx, vote in enumerate(pat):
-            if vote is not None:
+            if vote is not None and (v_idx, c_idx, vote) not in cstr_added:
                 s.add(add_constr(voter_vars[v_idx], com_vars[c_idx], vote))
+                cstr_added.add((v_idx, c_idx, vote))
 
     for c_idx in range(n_comments):
         s.add(sum([x * x for x in com_vars[c_idx]]) == 1)
