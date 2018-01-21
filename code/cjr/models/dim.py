@@ -1264,7 +1264,7 @@ def make_df_from_M(comment_tree_id, M):
                                   M=M)
 
 
-def make_M_from_df_generic(df, key_name, key_value):
+def make_M_from_df_generic(df, key_name, key_value, return_maps=False):
     """Creates a M matrix from the key_{name,value} pair."""
     df = df[df[key_name] == key_value]
 
@@ -1275,7 +1275,10 @@ def make_M_from_df_generic(df, key_name, key_value):
     for v_id, c_id, vote in df[['voter_id', 'comment_id', 'vote_type']].values:
         M[comments[c_id], voters[v_id]] = vote
 
-    return M
+    if return_maps:
+        return M, voters, comments
+    else:
+        return M
 
 
 def make_M_from_df(df, comment_tree_id):
