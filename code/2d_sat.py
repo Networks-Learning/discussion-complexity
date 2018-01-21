@@ -14,7 +14,7 @@ import multiprocessing as MP
 @click.option('--timeout', help='Time after which to give up (ms).', type=int, default=10 * 1000)
 @click.option('--real/--no-real', help='Assume format of real-data.', default=False)
 @click.option('--improve', default=None, help='Improve the results from the provided file. Will only run for `unknown` ids in the file.', type=click.Path(exists=True))
-@click.option('--context-id/--no-context-id', 'use_contextId', default=False, help='Use the contextId instead of comment_tree_id.')
+@click.option('--context-id/--no-context-id', 'use_contextId', default=False, help='Use the context_id instead of comment_tree_id to group comments into matrices.')
 @click.option('--nrows', default=-1, help='Number of rows from the CSV to read.')
 def cmd(in_file, n_dims, cpus, timeout, real, improve, use_contextId, nrows):
     """Reads data from IN_FILE with the following format:
@@ -62,7 +62,7 @@ def cmd(in_file, n_dims, cpus, timeout, real, improve, use_contextId, nrows):
 
     if improve is not None:
         old_results = pd.read_csv(improve)
-        key_ids = old_results[key][old_results['2D_sat'] == 'unknown'].values
+        key_ids = old_results[key][old_results['{}D_sat'.format(n_dims)] == 'unknown'].values
     else:
         key_ids = df[key].dropna().unique()
 
@@ -92,6 +92,7 @@ def cmd(in_file, n_dims, cpus, timeout, real, improve, use_contextId, nrows):
 
     out_df = pd.DataFrame.from_dict(data)
     print(out_df.to_csv(index=False))
+
 
 if __name__ == '__main__':
     cmd()
