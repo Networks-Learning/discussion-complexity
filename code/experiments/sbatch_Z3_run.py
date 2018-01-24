@@ -20,8 +20,8 @@ for sat_2d, sat_1d, ctx_id, seed, rank, i_loo, j_loo in df[['2D_sat', '1D_sat', 
 
     in_file = os.path.join(base, ctx_id, 'M_partial.mat')
     stdout_file = f'{output_dir}/sbatch.ctx{ctx_id}.s{seed}.i{i_loo}.j{j_loo}.out'
-    # Setting a 2Gb memory limit
-    # Setting a 20 seconds time limit
-    cmd = f'sbatch --mem=2000 --time=20 -o "{stdout_file}" ./sbatch_Z3_job.sh {in_file} {seed} {i_loo} {j_loo} {sat_2d} {sat_1d}'
+    # Setting a 4Gb memory limit
+    # Setting a 20 minutes time limit
+    cmd = f'sbatch --mem=4000 --time=20 -o "{stdout_file}" ./sbatch_Z3_job.sh {in_file} {seed} {i_loo} {j_loo} {sat_2d} {sat_1d}'
     # print(cmd)
     os.system(cmd)
