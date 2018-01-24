@@ -10,6 +10,7 @@ os.makedirs(output_dir, exist_ok=True)
 df = pd.read_csv(sys.argv[1])
 base = sys.argv[2]
 
+# Hint: ctx_compiled.csv has such fields.
 for sat_1d, sat_2d, ctx_id in df[['1D_sat', '2D_sat', 'context_id']].values:
     if sat_2d == 'sat':
         n_dim = 2 if sat_1d == 'unsat' else 1

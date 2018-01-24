@@ -11,6 +11,7 @@ df = pd.read_csv(sys.argv[1])
 base = sys.argv[2]
 seen = set()
 
+# Hint: merged_df.csv has such a structure.
 for sat_2d, sat_1d, ctx_id, seed, rank, i_loo, j_loo in df[['2D_sat', '1D_sat', 'context_id', 'seed', 'rank', 'i_loo', 'j_loo']].values:
 
     if (ctx_id, seed) in seen:
