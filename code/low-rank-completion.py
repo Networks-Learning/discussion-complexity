@@ -8,77 +8,7 @@ Bhaskar, Sonia A., and Adel Javanmard. "1-bit matrix completion under exact low-
 import click
 import scipy.io as io
 import numpy as np
-import scipy.optimize as OP
-from datetime import datetime
-
-
-# TODO: Define for probit model as well.
-def f(x):
-    return 1. / (1 + np.exp(-x))
-
-def f_prime(x):
-    return np.exp(-x) / ((1 + np.exp(-x)) ** 2)
-
-
-# TODO: The objective can be split for each row of U/V matrix, leading
-# to faster optimization problems.
-def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, verbose=False):
-    U = u.reshape(-1, V.shape[1])
-    M = U.dot(V.T)
-    m = M[omega]
-    LL = np.sum(n_pos * (m - np.log(1 + np.exp(m))) - n_neg * np.log(1 + np.exp(m)))
-
-    M_sq = np.square(M / alpha)
-    if np.any(M_sq > 1.0):
-        reg = -np.inf
-    else:
-        reg = reg_wt * np.sum(np.log1p(-M_sq))
-
-    if verbose:
-        print('LL = {}, reg = {}'.format(LL, reg))
-    return -(LL + reg)
-
-def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0):
-    U = u.reshape(-1, V.shape[1])
-    M = U.dot(V.T)
-    m = M[omega]
-    grad_barrier_denom =  2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
-
-    # TODO: This can probably be made faster using matrix multiplication.
-    grad = np.zeros_like(U)
-    for i in range(M.shape[0]):
-        for j in range(M.shape[1]):
-            grad[i, :] += grad_barrier_denom[i, j] * V[j, :]
-
-    grad_m = -(n_pos * (1 - f(m)) - n_neg * f(m))
-    for idx, (i, j) in enumerate(zip(*omega)):
-        grad[i, :] +=  grad_m[idx] * V[j, :]
-    return grad.reshape(-1)
-
-
-def obj_v(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
-    V = v.reshape(-1, U.shape[1])
-    u = U.reshape(-1)
-    return obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=alpha)
-
-
-def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
-    V = v.reshape(-1, U.shape[1])
-    M = U.dot(V.T)
-    m = M[omega]
-
-    grad_barrier_denom = 2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
-
-    grad = np.zeros_like(V)
-    for i in range(M.shape[0]):
-        for j in range(M.shape[1]):
-            grad[j, :] += grad_barrier_denom[i, j] * U[i, :]
-
-    grad_m = -(n_pos * (1 - f(m)) - n_neg * f(m))
-    for idx, (i, j) in enumerate(zip(*omega)):
-        grad[j, :] += grad_m[idx] * U[i, :]
-    return grad.reshape(-1)
-
+from cjr.models.low_rank import make_low_rank_params, optimize_low_rank, optimize_low_rank_lbfgs
 
 
 @click.command()
@@ -88,13 +18,25 @@ def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
 @click.option('--suffix', 'suffix', help='Suffix to add before saving the embeddings.', default='bfgs')
 @click.option('--init-c-vecs', 'init_c_vecs', help='File which contains initial embedding of c_vecs.', default=None)
 @click.option('--init-v-vecs', 'init_v_vecs', help='File which contains initial embedding of v_vecs.', default=None)
-def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix):
-    """Read M_partial from IN_MAT_FILE and optimize the embeddings to maximize the likelihood."""
+@click.option('-i', 'i_loo', help='Which i index to LOO.', default=-1)
+@click.option('-j', 'j_loo', help='Which j index to LOO.', default=-1)
+@click.option('--alpha', 'alpha', help='Bound on the spikiness of M.', default=1.0)
+@click.option('--lbfgs/--no-lbfgs', 'lbfgs', help='Whether to use LBFGS instead of BFGS.', default=True)
+def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
+        alpha, lbfgs):
+    """Read M_partial from IN_MAT_FILE and optimize the embeddings to maximize the likelihood under the logit model."""
 
-    # M = io.loadmat(os.path.join(base, ctx_id, 'M_partial.mat'))['M_partial']
     M = io.loadmat(in_mat_file)['M_partial']
+    rank = dims
+
+    LOO_mode = False
+    if i_loo > -1 and j_loo > -1:
+        LOO = M[i_loo, j_loo]
+        M[i_loo, j_loo] = 0
+        LOO_mode = True
+
     num_comments, num_voters = M.shape
-    num_embeds = dims
+    num_embed = dims
 
     RS = np.random.RandomState(seed)
 
@@ -106,43 +48,38 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix):
     if init_v_vecs is not None:
         V = np.loadtxt(init_v_vecs, ndmin=2)
     else:
-        V = RS.randn(num_comments, num_embed)
+        V = RS.randn(num_voters, num_embed)
 
     # Scaling the initial values such that all dot products are less than alpha = 1.0
-    M_max = np.max(U.dot(V.T))
-    U /= np.sqrt(M_max) * 1.1
-    V /= np.sqrt(M_max) * 1.1
+    M_max = np.max(np.abs(U.dot(V.T)))
+    U /= np.sqrt(M_max / alpha) * 1.1
+    V /= np.sqrt(M_max / alpha) * 1.1
 
-    M_pos = np.zeros((num_comments, num_voters))
-    M_neg = np.zeros((num_comments, num_voters))
+    params = make_low_rank_params(M)
+    n_neg = params['n_neg']
+    n_pos = params['n_pos']
+    omega = params['omega']
 
-    M_pos[M > 0] = 1.0
-    M_neg[M < 0] = 1.0
-
-    omega = (M_pos + M_neg).nonzero()
-    n_neg = M_neg[omega]
-    n_pos = M_pos[omega]
-
-    U_bfgs = []
-    V_bfgs = []
-
-    for i in range(10):
+    opt_func = optimize_low_rank if not lbfgs else optimize_low_rank_lbfgs
+    for i in range(15):
         print('Iter ', i)
+        ret = opt_func(U, V, n_pos, n_neg, omega, reg_wt=1.0 / (2 ** i),
+                       alpha=alpha, verbose=True)
+        U, V = ret['U'], ret['V']
 
-        u0 = U.reshape(-1)
-        [u_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_u, u0, fprime=obj_u_prime, args=(V, n_pos, n_neg, omega, 1.0 / (2 ** i), 1.0), disp=True, full_output=1)
-        print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
-        U = u_next.reshape(*U.shape)
-        U_bfgs.append(U)
+    if LOO_mode:
+        file_tmpl = f'{in_mat_file}.r{rank}.s{seed}.i{i_loo}.j{j_loo}.low-rank.out'
+        op_mat_file = file_tmpl + '.mat'
+        Mhat = U.dot(V.T)
+        io.savemat(op_mat_file, {'Mhat': Mhat})
 
-        v0 = V.reshape(-1)
-        [v_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, 1.0 / (2 ** i), 1.0), disp=True, full_output=1)
-        print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
-        V = v_next.reshape(*V.shape)
-        V_bfgs.append(V)
+        op_loo_file = file_tmpl + '.loo'
+        with open(op_loo_file, 'wt') as f:
+            f.write('{}, {}'.format(LOO, Mhat[i_loo, j_loo]))
+    else:
+        np.savetxt(in_mat_file + '.' + suffix + '.c_vecs', U)
+        np.savetxt(in_mat_file + '.' + suffix + '.v_vecs', V)
 
-    np.savetxt(in_mat_file + '.' + suffix + '.c_vecs', U)
-    np.savetxt(in_mat_file + '.' + suffix + '.v_vecs', V)
     print('Done.')
 
 
