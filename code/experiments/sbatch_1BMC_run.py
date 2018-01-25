@@ -4,12 +4,13 @@ import os
 import pandas as pd
 import sys
 
-output_dir = "sbatch-out"
+output_dir = "/NL/stackexchange/work/matrix-completion/sbatch-1BMC-loo/"
 os.makedirs(output_dir, exist_ok=True)
 
 df = pd.read_csv(sys.argv[1])
 base = sys.argv[2]
 
+# Hint: perf_script.csv
 for ctx_id, seed, rank, i_loo, j_loo in df[['context_id', 'seed', 'rank', 'i_loo', 'j_loo']].values:
     in_file = os.path.join(base, ctx_id, 'M_partial.mat')
     stdout_file = f'{output_dir}/sbatch.ctx{ctx_id}.r{rank}.s{seed}.i{i_loo}.j{j_loo}.out'
