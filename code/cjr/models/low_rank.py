@@ -7,24 +7,27 @@ The implementation assumes the logit model.
 
 import numpy as np
 import scipy.optimize as OP
+from scipy.special import xlog1py
 from datetime import datetime
 
 
 # TODO: Define for probit model as well.
-def f(x):
-    return 1. / (1 + np.exp(-x))
+def f(x, sigma):
+    return 1. / (1 + np.exp(-x / sigma))
 
-def f_prime(x):
-    return np.exp(-x) / ((1 + np.exp(-x)) ** 2)
+def f_prime(x, sigma):
+    return np.exp(-x / sigma) / (sigma * ((1 + np.exp(-x / sigma)) ** 2))
 
 
 # TODO: The objective can be split for each row of U/V matrix, leading
 # to faster optimization problems.
-def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, verbose=False):
+def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, verbose=False):
     U = u.reshape(-1, V.shape[1])
     M = U.dot(V.T)
     m = M[omega]
-    LL = np.sum(n_pos * (m - np.log(1 + np.exp(m))) - n_neg * np.log(1 + np.exp(m)))
+    # LL = np.sum(n_pos * (m - np.log(1 + np.exp(m))) - n_neg * np.log(1 + np.exp(m)))
+    LL = np.sum(n_pos * m / sigma
+                - xlog1py(n_pos + n_neg, np.exp(m / sigma)))
 
     M_sq = np.square(M / alpha)
     if np.any(M_sq > 1.0):
@@ -36,7 +39,7 @@ def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, verbose=False):
         print('LL = {}, reg = {}'.format(LL, reg))
     return -(LL + reg)
 
-def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0):
+def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
     U = u.reshape(-1, V.shape[1])
     M = U.dot(V.T)
     m = M[omega]
@@ -49,19 +52,19 @@ def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0):
             grad[i, :] += grad_barrier_denom[i, j] * V[j, :]
 
     # Assumes the logist model.
-    grad_m = -(n_pos * (1 - f(m)) - n_neg * f(m))
+    grad_m = -(n_pos * (1 - f(m, sigma)) - n_neg * f(m, sigma)) / sigma
     for idx, (i, j) in enumerate(zip(*omega)):
         grad[i, :] +=  grad_m[idx] * V[j, :]
     return grad.reshape(-1)
 
 
-def obj_v(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
+def obj_v(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
     V = v.reshape(-1, U.shape[1])
     u = U.reshape(-1)
-    return obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=alpha)
+    return obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=alpha, sigma=sigma)
 
 
-def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
+def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
     V = v.reshape(-1, U.shape[1])
     M = U.dot(V.T)
     m = M[omega]
@@ -73,8 +76,8 @@ def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0):
         for j in range(M.shape[1]):
             grad[j, :] += grad_barrier_denom[i, j] * U[i, :]
 
-    # Assumes the logist model.
-    grad_m = -(n_pos * (1 - f(m)) - n_neg * f(m))
+    # Assumes the logistic noise model.
+    grad_m = -(n_pos * (1 - f(m, sigma)) - n_neg * f(m, sigma)) / sigma
     for idx, (i, j) in enumerate(zip(*omega)):
         grad[j, :] += grad_m[idx] * U[i, :]
     return grad.reshape(-1)
@@ -101,7 +104,9 @@ def make_low_rank_params(M_orig):
     }
 
 
-def optimize_low_rank(U_init, V_init, n_pos, n_neg, omega, reg_wt, alpha, verbose=False):
+def optimize_low_rank(U_init, V_init, n_pos, n_neg, omega,
+                      reg_wt, alpha, sigma,
+                      verbose=False):
     """Run one iteration of the alternating optimization."""
 
     u0 = U_init.reshape(-1)
@@ -122,17 +127,19 @@ def optimize_low_rank(U_init, V_init, n_pos, n_neg, omega, reg_wt, alpha, verbos
     }
 
 
-def optimize_low_rank_lbfgs(U_init, V_init, n_pos, n_neg, omega, reg_wt, alpha, verbose=False):
+def optimize_low_rank_lbfgs(U_init, V_init, n_pos, n_neg, omega,
+                            reg_wt, alpha, sigma,
+                            verbose=False):
     """Run one iteration of the alternating optimization."""
 
     u0 = U_init.reshape(-1)
-    [u_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha), disp=verbose)
+    [u_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=verbose)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     U = u_next.reshape(*U_init.shape)
 
     v0 = V_init.reshape(-1)
-    [v_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha), disp=verbose)
+    [v_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=verbose)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     V = v_next.reshape(*V_init.shape)
@@ -143,7 +150,7 @@ def optimize_low_rank_lbfgs(U_init, V_init, n_pos, n_neg, omega, reg_wt, alpha, 
     }
 
 
-def verify_low_rank_grads(U_init, V_init, reg_wt=1.0, alpha=1.0):
+def verify_low_rank_grads(U_init, V_init, reg_wt=1.0, alpha=1.0, sigma=1.0):
     """Verify that the gradients are correct. If the numbers returned are
     *small*, the gradients are correct."""
 
@@ -153,9 +160,9 @@ def verify_low_rank_grads(U_init, V_init, reg_wt=1.0, alpha=1.0):
 
     return {
         'u_check': OP.check_grad(obj_u, obj_u_prime, U_init.reshape(-1),
-                                 V_init, n_pos, n_neg, omega, reg_wt, alpha),
+                                 V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma),
         'v_check': OP.check_grad(obj_v, obj_v_prime, V_init.reshape(-1),
-                                 U_init, n_pos, n_neg, omega, reg_wt, alpha)
+                                 U_init, n_pos, n_neg, omega, reg_wt, alpha, sigma)
     }
 
 
