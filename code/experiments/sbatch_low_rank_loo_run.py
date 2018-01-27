@@ -3,6 +3,7 @@
 import os
 import pandas as pd
 import sys
+from collections import defaultdict
 
 output_dir = "/NL/stackexchange/work/matrix-completion/batch-out-low-rank-loo"
 os.makedirs(output_dir, exist_ok=True)
@@ -16,6 +17,10 @@ if len(sys.argv) > 3:
         incremental = True
     else:
         raise NotImplemented("Unknown argument {}.".format(sys.argv[3]))
+
+
+sigma_by_rank = defaultdict(lambda: 1.0)
+sigma_by_rank[1] = 100.0
 
 # Hint: perf_script.csv
 for ctx_id, seed, rank, i_loo, j_loo in df[['context_id', 'seed', 'rank', 'i_loo', 'j_loo']].values:
@@ -32,8 +37,10 @@ for ctx_id, seed, rank, i_loo, j_loo in df[['context_id', 'seed', 'rank', 'i_loo
             print('Not processing {} because output exists.'.format(in_mat_file))
             continue
 
-    # Setting a 6Gb memory limit
+    # Setting a 5Gb memory limit
     # Setting a 60 minutes time limit
-    cmd = f'sbatch --mem=6000 --time=60 -o "{stdout_file}" ./sbatch_low_rank_loo_job.sh {in_mat_file} {seed} {rank} {i_loo} {j_loo}'
+    alpha = 20.0
+    sigma = sigma_by_rank[rank]
+    cmd = f'sbatch --mem=5000 --time=60 -o "{stdout_file}" ./sbatch_low_rank_loo_job.sh {in_mat_file} {seed} {rank} {alpha} {sigma} {i_loo} {j_loo}'
     # print(cmd)
     os.system(cmd)

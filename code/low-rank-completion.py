@@ -21,9 +21,12 @@ from cjr.models.low_rank import make_low_rank_params, optimize_low_rank, optimiz
 @click.option('-i', 'i_loo', help='Which i index to LOO.', default=-1)
 @click.option('-j', 'j_loo', help='Which j index to LOO.', default=-1)
 @click.option('--alpha', 'alpha', help='Bound on the spikiness of M.', default=1.0)
+@click.option('--sigma', 'sigma', help='What is the variance of (logistic) noise to add.', default=1.0)
 @click.option('--lbfgs/--no-lbfgs', 'lbfgs', help='Whether to use LBFGS instead of BFGS.', default=True)
+@click.option('--loo-output', 'loo_output', help='Where to save the LOO output.', default=None)
+@click.option('--loo-only/--no-loo-only', 'loo_only', help='Whether to only save the LOO output or whether to save the complete recovered matrix.', default=False)
 def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
-        alpha, lbfgs):
+        alpha, sigma, lbfgs, loo_output, loo_only):
     """Read M_partial from IN_MAT_FILE and optimize the embeddings to maximize the likelihood under the logit model."""
 
     M = io.loadmat(in_mat_file)['M_partial']
@@ -50,7 +53,7 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
     else:
         V = RS.randn(num_voters, num_embed)
 
-    # Scaling the initial values such that all dot products are less than alpha = 1.0
+    # Scaling the initial values such that all dot products are at most = alpha / 1.21
     M_max = np.max(np.abs(U.dot(V.T)))
     U /= np.sqrt(M_max / alpha) * 1.1
     V /= np.sqrt(M_max / alpha) * 1.1
@@ -64,18 +67,21 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
     for i in range(15):
         print('Iter ', i)
         ret = opt_func(U, V, n_pos, n_neg, omega, reg_wt=1.0 / (2 ** i),
-                       alpha=alpha, verbose=True)
+                       alpha=alpha, sigma=sigma, verbose=True)
         U, V = ret['U'], ret['V']
 
     if LOO_mode:
         file_tmpl = f'{in_mat_file}.r{rank}.s{seed}.i{i_loo}.j{j_loo}.low-rank.out'
-        op_mat_file = file_tmpl + '.mat'
-        Mhat = U.dot(V.T)
-        io.savemat(op_mat_file, {'Mhat': Mhat})
 
-        op_loo_file = file_tmpl + '.loo'
+        if not loo_only:
+            op_mat_file = file_tmpl + '.mat'
+            Mhat = U.dot(V.T)
+            io.savemat(op_mat_file, {'Mhat': Mhat})
+
+        op_loo_file = loo_output if loo_output is not None else file_tmpl + '.loo'
+        loo_pred = U[i_loo, :].dot(V[j_loo, :])
         with open(op_loo_file, 'wt') as f:
-            f.write('{}, {}'.format(LOO, Mhat[i_loo, j_loo]))
+            f.write('{}, {}'.format(LOO, loo_pred))
     else:
         np.savetxt(in_mat_file + '.' + suffix + '.c_vecs', U)
         np.savetxt(in_mat_file + '.' + suffix + '.v_vecs', V)
