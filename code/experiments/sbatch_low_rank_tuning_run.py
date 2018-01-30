@@ -9,9 +9,11 @@ import pandas as pd
 @click.argument('tuning_csv_file')
 @click.argument('base_dir')
 @click.option('--incremental/--no-incremental', 'incr', help='Whether to produce only the output files which do not exist or to reproduce all files.', default=False)
+@click.option('--timeout', 'timeout', help='How long to allow the job to run (minutes).', default=60)
+@click.option('--memory', 'memory_gb', help='How much memory to allow each job to use (multiples of 1000Mb).', default=5)
 @click.option('--loo-op-dir', 'loo_op_dir', help='Where to save the output LOO files.', default='/NL/stackexchange/work/matrix-completion/1BMC-tuning')
 @click.option('--std-op-dir', 'std_op_dir', help='Where to save the stdout files.', default='/NL/stackexchange/work/matrix-completion/1BMC-tuning-stdout')
-def cmd(tuning_csv_file, base_dir, loo_op_dir, std_op_dir, incr):
+def cmd(tuning_csv_file, base_dir, loo_op_dir, std_op_dir, incr, timeout, memory_gb):
     """Read parameters for the 1BMC-r from tuning_csv_file and start SLURM jobs."""
     os.makedirs(loo_op_dir, exist_ok=True)
     os.makedirs(std_op_dir, exist_ok=True)
@@ -29,7 +31,9 @@ def cmd(tuning_csv_file, base_dir, loo_op_dir, std_op_dir, incr):
             print('Not starting for {} as output already exists.'.format(context_id))
             continue
 
-        cmd = f'sbatch --mem=5000 --time=60 -o "{op_std_file}" ./sbatch_low_rank_tuning_job.sh {in_mat_file} {seed} {rank} {alpha} {sigma} {i_loo} {j_loo} {context_id} "{op_loo_file}"'
+        memory = memory_gb * 1000
+
+        cmd = f'sbatch --mem={memory} --time={timeout} -o "{op_std_file}" ./sbatch_low_rank_tuning_job.sh {in_mat_file} {seed} {rank} {alpha} {sigma} {i_loo} {j_loo} {context_id} "{op_loo_file}"'
         # print(cmd)
         os.system(cmd)
 
