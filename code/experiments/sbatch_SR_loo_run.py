@@ -18,6 +18,8 @@ def cmd(in_perf_script_csv, base_dir, incremental, output_dir):
     df = pd.read_csv(in_perf_script_csv)
     M_file = 'M_partial.mat'
 
+    os.makedirs(output_dir, exist_ok=True)
+
     seen = set()
     for ctx_id, seed, i_loo, j_loo in df[['context_id', 'seed', 'i_loo', 'j_loo']].values:
         if (ctx_id, seed) in seen:
@@ -38,9 +40,10 @@ def cmd(in_perf_script_csv, base_dir, incremental, output_dir):
                 print('Not running for {}, output files exist.'.format((ctx_id, seed)))
                 continue
 
-        cmd = f'sbatch --mem=5000 --time=60 -o "{stdout_file}.%j" ./sbatch_SR_loo_job.sh {in_file} {seed} {i_loo} {j_loo} {op_mat_file} {op_loo_file} {op_SC_file}'
+        cmd = f'sbatch --mem=5000 --time=240 -o "{stdout_file}.%j" ./sbatch_SR_loo_job.sh {in_file} {seed} {i_loo} {j_loo} {op_mat_file} {op_loo_file} {op_SC_file}'
         # print(cmd)
         os.system(cmd)
+
 
 if __name__ == '__main__':
     cmd()

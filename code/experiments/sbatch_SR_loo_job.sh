@@ -14,4 +14,4 @@ source conda.sh
 
 cd /home/utkarshu/prog/crowdjudged.git/code;
 
-python SR_fill.py ${inp_mat_file} ${op_mat_file} ${op_loo_file} ${op_SC_file} -i ${i_loo} -j ${j_loo} --seed ${seed} --min-avg
+python SR_fill.py ${inp_mat_file} ${op_mat_file} ${op_SC_file} --op-loo ${op_loo_file} -i ${i_loo} -j ${j_loo} --seed ${seed} --min-avg
