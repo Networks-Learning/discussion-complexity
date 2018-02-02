@@ -2,7 +2,6 @@
 """Implements the Exact low rank matrix filling as discussed in:
 
 Bhaskar, Sonia A., and Adel Javanmard. "1-bit matrix completion under exact low-rank constraint." Information Sciences and Systems (CISS), 2015 49th Annual Conference on. IEEE, 2015.
-
 """
 
 import click

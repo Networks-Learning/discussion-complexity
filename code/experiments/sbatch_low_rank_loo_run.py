@@ -37,10 +37,10 @@ for ctx_id, seed, rank, i_loo, j_loo in df[['context_id', 'seed', 'rank', 'i_loo
             print('Not processing {} because output exists.'.format(in_mat_file))
             continue
 
-    # Setting a 5Gb memory limit
-    # Setting a 60 minutes time limit
+    # Setting a 10Gb memory limit
+    # Setting a 120 minutes time limit
     alpha = 20.0
     sigma = sigma_by_rank[rank]
-    cmd = f'sbatch --mem=5000 --time=60 -o "{stdout_file}" ./sbatch_low_rank_loo_job.sh {in_mat_file} {seed} {rank} {alpha} {sigma} {i_loo} {j_loo}'
+    cmd = f'sbatch --mem=10000 --time=120 -o "{stdout_file}" ./sbatch_low_rank_loo_job.sh {in_mat_file} {seed} {rank} {alpha} {sigma} {i_loo} {j_loo}'
     # print(cmd)
     os.system(cmd)
