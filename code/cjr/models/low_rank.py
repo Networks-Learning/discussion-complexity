@@ -21,7 +21,7 @@ def f_prime(x, sigma):
 
 # TODO: The objective can be split for each row of U/V matrix, leading
 # to faster optimization problems.
-def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, verbose=False):
+def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False, verbose=False):
     U = u.reshape(-1, V.shape[1])
     M = U.dot(V.T)
     m = M[omega]
@@ -29,52 +29,68 @@ def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, verbose=False
     LL = np.sum(n_pos * m / sigma
                 - xlog1py(n_pos + n_neg, np.exp(m / sigma)))
 
-    M_sq = np.square(M / alpha)
-    if np.any(M_sq > 1.0):
-        reg = -np.inf
+    if not UV:
+        M_sq = np.square(M / alpha)
+        if np.any(M_sq > 1.0):
+            reg = -np.inf
+        else:
+            reg = reg_wt * np.sum(np.log1p(-M_sq))
     else:
-        reg = reg_wt * np.sum(np.log1p(-M_sq))
+        U_sq = np.square(U / alpha)
+        V_sq = np.square(V / alpha)
+        if np.any(U_sq > 1.0) or np.any(V_sq > 1.0):
+            reg = -np.inf
+        else:
+            reg = reg_wt * (np.sum(np.log1p(-U_sq)) + np.sum(np.log1p(-V_sq)))
 
     if verbose:
         print('LL = {}, reg = {}'.format(LL, reg))
     return -(LL + reg)
 
-def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
+def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False):
     U = u.reshape(-1, V.shape[1])
     M = U.dot(V.T)
     m = M[omega]
-    grad_barrier_denom =  2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
 
     # TODO: This can probably be made faster using matrix multiplication.
     grad = np.zeros_like(U)
-    for i in range(M.shape[0]):
-        for j in range(M.shape[1]):
-            grad[i, :] += grad_barrier_denom[i, j] * V[j, :]
+
+    if not UV:
+        grad_barrier_denom = 2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                grad[i, :] += grad_barrier_denom[i, j] * V[j, :]
+    else:
+        grad = 2 * reg_wt * U / ((alpha ** 2) * (1 - np.square(U / alpha)))
 
     # Assumes the logist model.
     grad_m = -(n_pos * (1 - f(m, sigma)) - n_neg * f(m, sigma)) / sigma
     for idx, (i, j) in enumerate(zip(*omega)):
-        grad[i, :] +=  grad_m[idx] * V[j, :]
+        grad[i, :] += grad_m[idx] * V[j, :]
     return grad.reshape(-1)
 
 
-def obj_v(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
+def obj_v(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False):
     V = v.reshape(-1, U.shape[1])
     u = U.reshape(-1)
-    return obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=alpha, sigma=sigma)
+    return obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=alpha, sigma=sigma, UV=UV)
 
 
-def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
+def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False):
     V = v.reshape(-1, U.shape[1])
     M = U.dot(V.T)
     m = M[omega]
 
-    grad_barrier_denom = 2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
-
     grad = np.zeros_like(V)
-    for i in range(M.shape[0]):
-        for j in range(M.shape[1]):
-            grad[j, :] += grad_barrier_denom[i, j] * U[i, :]
+
+    if not UV:
+        grad_barrier_denom = 2 * reg_wt * M / ((alpha ** 2) * (1 - np.square(M / alpha)))
+
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                grad[j, :] += grad_barrier_denom[i, j] * U[i, :]
+    else:
+        grad = 2 * reg_wt * V / ((alpha ** 2) * (1 - np.square(V / alpha)))
 
     # Assumes the logistic noise model.
     grad_m = -(n_pos * (1 - f(m, sigma)) - n_neg * f(m, sigma)) / sigma
@@ -83,7 +99,7 @@ def obj_v_prime(v, U, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0):
     return grad.reshape(-1)
 
 
-def make_low_rank_params(M_orig):
+def make_low_rank_params(M_orig, UV=False):
     """Returns the arguments which the objective functions need."""
     num_comments, num_voters = M_orig.shape
 
@@ -150,19 +166,17 @@ def optimize_low_rank_lbfgs(U_init, V_init, n_pos, n_neg, omega,
     }
 
 
-def verify_low_rank_grads(U_init, V_init, reg_wt=1.0, alpha=1.0, sigma=1.0):
+def verify_low_rank_grads(U_init, V_init, reg_wt=1.0, alpha=1.0, sigma=1.0, UV=False):
     """Verify that the gradients are correct. If the numbers returned are
     *small*, the gradients are correct."""
 
     M = np.random.randn(U_init.shape[0], V_init.shape[0])
-    params = make_low_rank_params(M)
+    params = make_low_rank_params(M, UV=UV)
     omega, n_neg, n_pos = params['omega'], params['n_neg'], params['n_pos']
 
     return {
         'u_check': OP.check_grad(obj_u, obj_u_prime, U_init.reshape(-1),
-                                 V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma),
+                                 V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV),
         'v_check': OP.check_grad(obj_v, obj_v_prime, V_init.reshape(-1),
-                                 U_init, n_pos, n_neg, omega, reg_wt, alpha, sigma)
+                                 U_init, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV)
     }
-
-
