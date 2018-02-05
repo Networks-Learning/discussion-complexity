@@ -28,8 +28,9 @@ def cmd(in_sat_csv, out_sat_csv, base_dir, max_dim, force):
         if dim_col not in df.columns:
             df[dim_col] = 'unknown'
 
-            if last_col is not None:
-                df[dim_col][df[last_col] == 'sat'] = 'sat'
+        # If it was 'sat' in (n-1)D, it will be 'sat' in nD as well.
+        if last_col is not None:
+            df[dim_col][df[last_col] == 'sat'] = 'sat'
 
         last_col = dim_col
 
