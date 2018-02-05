@@ -15,6 +15,7 @@ from datetime import datetime
 def f(x, sigma):
     return 1. / (1 + np.exp(-x / sigma))
 
+
 def f_prime(x, sigma):
     return np.exp(-x / sigma) / (sigma * ((1 + np.exp(-x / sigma)) ** 2))
 
@@ -26,8 +27,7 @@ def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False, ver
     M = U.dot(V.T)
     m = M[omega]
     # LL = np.sum(n_pos * (m - np.log(1 + np.exp(m))) - n_neg * np.log(1 + np.exp(m)))
-    LL = np.sum(n_pos * m / sigma
-                - xlog1py(n_pos + n_neg, np.exp(m / sigma)))
+    LL = np.sum(n_pos * m / sigma - xlog1py(n_pos + n_neg, np.exp(m / sigma)))
 
     if not UV:
         M_sq = np.square(M / alpha)
@@ -46,6 +46,7 @@ def obj_u(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False, ver
     if verbose:
         print('LL = {}, reg = {}'.format(LL, reg))
     return -(LL + reg)
+
 
 def obj_u_prime(u, V, n_pos, n_neg, omega, reg_wt, alpha=1.0, sigma=1.0, UV=False):
     U = u.reshape(-1, V.shape[1])
@@ -121,46 +122,48 @@ def make_low_rank_params(M_orig, UV=False):
 
 
 def optimize_low_rank(U_init, V_init, n_pos, n_neg, omega,
-                      reg_wt, alpha, sigma,
+                      reg_wt, alpha, sigma, UV=False,
                       verbose=False):
     """Run one iteration of the alternating optimization."""
 
     u0 = U_init.reshape(-1)
-    [u_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=False, full_output=1)
+    [u_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV), disp=False, full_output=1)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     U = u_next.reshape(*U_init.shape)
 
     v0 = V_init.reshape(-1)
-    [v_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=False, full_output=1)
+    [v_next, f_opt, g_opt, Bopt, func_calls, grad_calls, warnflag] = OP.fmin_bfgs(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV), disp=False, full_output=1)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     V = v_next.reshape(*V_init.shape)
 
     return {
+        'f_opt': f_opt,
         'U': U,
         'V': V
     }
 
 
 def optimize_low_rank_lbfgs(U_init, V_init, n_pos, n_neg, omega,
-                            reg_wt, alpha, sigma,
+                            reg_wt, alpha, sigma, UV=False,
                             verbose=False):
     """Run one iteration of the alternating optimization."""
 
     u0 = U_init.reshape(-1)
-    [u_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=verbose)
+    [u_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_u, u0, fprime=obj_u_prime, args=(V_init, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV), disp=verbose)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     U = u_next.reshape(*U_init.shape)
 
     v0 = V_init.reshape(-1)
-    [v_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha, sigma), disp=verbose)
+    [v_next, f_opt, d] = OP.fmin_l_bfgs_b(obj_v, v0, fprime=obj_v_prime, args=(U, n_pos, n_neg, omega, reg_wt, alpha, sigma, UV), disp=verbose)
     if verbose:
         print('{} obj = {:0.3f}'.format(datetime.now(), f_opt))
     V = v_next.reshape(*V_init.shape)
 
     return {
+        'f_opt': f_opt,
         'U': U,
         'V': V
     }
