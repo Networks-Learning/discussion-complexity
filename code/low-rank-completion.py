@@ -24,8 +24,9 @@ from cjr.models.low_rank import make_low_rank_params, optimize_low_rank, optimiz
 @click.option('--lbfgs/--no-lbfgs', 'lbfgs', help='Whether to use LBFGS instead of BFGS.', default=True)
 @click.option('--loo-output', 'loo_output', help='Where to save the LOO output.', default=None)
 @click.option('--loo-only/--no-loo-only', 'loo_only', help='Whether to only save the LOO output or whether to save the complete recovered matrix.', default=False)
+@click.option('--uv/--no-uv', 'UV_mode', help='Whether to impose the alpha constraint on both U and V or on U.V^T.', default=False)
 def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
-        alpha, sigma, lbfgs, loo_output, loo_only):
+        alpha, sigma, lbfgs, loo_output, loo_only, UV_mode):
     """Read M_partial from IN_MAT_FILE and optimize the embeddings to maximize the likelihood under the logit model."""
 
     M = io.loadmat(in_mat_file)['M_partial']
@@ -53,9 +54,15 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
         V = RS.randn(num_voters, num_embed)
 
     # Scaling the initial values such that all dot products are at most = alpha / 1.21
-    M_max = np.max(np.abs(U.dot(V.T)))
-    U /= np.sqrt(M_max / alpha) * 1.1
-    V /= np.sqrt(M_max / alpha) * 1.1
+    if not UV_mode:
+        M_max = np.max(np.abs(U.dot(V.T)))
+        U /= np.sqrt(M_max / alpha) * 1.1
+        V /= np.sqrt(M_max / alpha) * 1.1
+        print('Not running in UV mode.')
+    else:
+        U /= np.max(np.abs(U)) / alpha * 1.1
+        V /= np.max(np.abs(V)) / alpha * 1.1
+        print('Running in UV mode.')
 
     params = make_low_rank_params(M)
     n_neg = params['n_neg']
@@ -63,11 +70,31 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
     omega = params['omega']
 
     opt_func = optimize_low_rank if not lbfgs else optimize_low_rank_lbfgs
-    for i in range(15):
+    i = 0
+
+    tol = 1e-2
+    prev_fopt = None
+
+    while True:
+        i = i + 1
         print('Iter ', i)
+
+        if i > 100:
+            print('Too many iterations, breaking.')
+
         ret = opt_func(U, V, n_pos, n_neg, omega, reg_wt=1.0 / (2 ** i),
-                       alpha=alpha, sigma=sigma, verbose=True)
-        U, V = ret['U'], ret['V']
+                       alpha=alpha, sigma=sigma, UV=UV_mode, verbose=True)
+        f_opt, U, V = ret['f_opt'], ret['U'], ret['V']
+
+        if prev_fopt is not None:
+            if np.abs(f_opt - prev_fopt) / prev_fopt < tol:
+                break
+
+        if not np.isfinite(f_opt):
+            print('f_opt was not finite, breaking.')
+            break
+
+        prev_fopt = f_opt
 
     if LOO_mode:
         file_tmpl = f'{in_mat_file}.r{rank}.s{seed}.i{i_loo}.j{j_loo}.low-rank.out'
