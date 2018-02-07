@@ -15,8 +15,11 @@ OUTPUT_DIR = '/NL/stackexchange/work/matrix-completion/batch-out-SR-pure'
 @click.option('--min-avg/--no-min-avg', 'use_min_avg', help='Whether to minimize the average number of SC or worst case.', default=True)
 @click.option('--transpose/--no-transpose', 'transpose', help='Whether to transpose M matrix or not.', default=False)
 @click.option('--incremental/--no-incremental', help='Run only for cases for which the output file does not exist.', default=False)
-@click.option('--dry/--no-dry', help='Whether to just print the commands instead of running them.', default=False)
-def cmd(ctx_compiled_csv, base_dir, use_min_avg, incremental, output_dir, transpose, dry):
+@click.option('--dry/--no-dry', help='Whether to just print the commands instead of running them.', default=True)
+@click.option('--mem', help='How much memory usage to allow for each process.', default=5000)
+@click.option('--timeout', help='How much time to allow for each process (minutes).', default=240)
+def cmd(ctx_compiled_csv, base_dir, use_min_avg, incremental, output_dir,
+        transpose, dry, mem, timeout):
     """Read parameters from CTX_COMPILED_CSV and run SR on it while reading M_partial.mat from BASE_DIR."""
     df = pd.read_csv(ctx_compiled_csv)
     M_file = 'M_partial.mat'
@@ -40,7 +43,7 @@ def cmd(ctx_compiled_csv, base_dir, use_min_avg, incremental, output_dir, transp
                 print('Not running for {} because output exists.'.format(ctx_id))
                 continue
 
-        cmd = f'sbatch --mem=5000 --time=240 -o "{stdout_file}.%j" ./sbatch_SR_job.sh {in_file} {op_mat_file} {op_SC_file} {min_avg_cmd} {T_cmd}'
+        cmd = f'sbatch --mem={mem} --time={timeout} -o "{stdout_file}.%j" ./sbatch_SR_job.sh {in_file} {op_mat_file} {op_SC_file} {min_avg_cmd} {T_cmd}'
 
         if dry:
             print(cmd)
