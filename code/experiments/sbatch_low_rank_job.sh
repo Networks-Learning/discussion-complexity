@@ -7,9 +7,11 @@ n_dim=$2
 sigma=$3
 alpha=$4
 suffix=$5
+uv=$6
 
 source conda.sh
 
 cd /home/utkarshu/prog/crowdjudged.git/code;
 
-python low-rank-completion.py "${in_file}" --init-c-vecs "${in_file}.c_vecs" --init-v-vecs "${in_file}.v_vecs" --dims ${n_dim} --sigma ${sigma} --alpha ${alpha} --suffix ${suffix}
+# python low-rank-completion.py "${in_file}" --init-c-vecs "${in_file}.c_vecs" --init-v-vecs "${in_file}.v_vecs" --dims ${n_dim} --sigma ${sigma} --alpha ${alpha} --suffix ${suffix} "${uv}"
+python low-rank-completion.py "${in_file}" --dims ${n_dim} --sigma ${sigma} --alpha ${alpha} --suffix ${suffix} "${uv}"
