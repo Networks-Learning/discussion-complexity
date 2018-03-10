@@ -13,7 +13,9 @@ import numpy as np
 @click.option('--dims', help='What dimension to use while splitting matrix.', default=2)
 @click.option('--timeout', help='What timeout to use (minutes).', default=20)
 def cmd(mat_file, op_sat_file, dims, timeout):
-    """Read the partial matrix in MAT_FILE and save satisfiability and embeddings to `OP_SAT_FILE`, `OP_SAT_FILE.c_vecs` and `OP_SAT_FILE.v_vecs`."""
+    """Read the partial matrix in MAT_FILE and save satisfiability and
+    embeddings to `OP_SAT_FILE`, `OP_SAT_FILE.c_vecs` and
+    `OP_SAT_FILE.v_vecs`."""
 
     M = io.loadmat(mat_file)['M_partial']
 

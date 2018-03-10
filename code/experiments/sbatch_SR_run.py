@@ -5,7 +5,7 @@ import pandas as pd
 import click
 import sys
 
-OUTPUT_DIR = '/NL/stackexchange/work/matrix-completion/batch-out-SR-pure'
+OUTPUT_DIR = '/NL/crowdjudged/work/matrix-completion/batch-out-SR-pure'
 
 
 @click.command()
@@ -25,7 +25,7 @@ def cmd(ctx_compiled_csv, base_dir, use_min_avg, incremental, output_dir,
     M_file = 'M_partial.mat'
 
     os.makedirs(output_dir, exist_ok=True)
-    min_avg_str = 'min-avg.' if use_min_avg else ''
+    min_avg_str = 'min-avg.' if use_min_avg else 'no-min-avg.'
     min_avg_cmd = '--min-avg' if use_min_avg else '--no-min-avg'
 
     T_str = 'T.' if transpose else ''
