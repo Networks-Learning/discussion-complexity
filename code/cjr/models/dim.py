@@ -7,7 +7,7 @@ import scipy as sp
 
 try:
     from unionfind import UnionFind
-except:
+except ImportError:
     from ..utils.unionfind import UnionFind
 
 from datetime import datetime

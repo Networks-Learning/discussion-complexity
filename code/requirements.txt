@@ -1,0 +1,7 @@
+networkx==2.0rc1
+z3
+click
+pandas
+numpy
+scipy
+pqdict
