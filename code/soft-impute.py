@@ -50,7 +50,7 @@ def cmd(in_mat_file, dims, suffix, i_loo, j_loo, loo_output, loo_only, verbose, 
         with open(op_loo_file, 'wt') as f:
             f.write('{}, {}'.format(LOO, loo_pred))
     else:
-        raise NotImplementedError('Use randommized_svd here.')
+        raise NotImplementedError('Use randomized_svd here.')
         # np.savetxt(in_mat_file + '.' + suffix + '.c_vecs', U)
         # np.savetxt(in_mat_file + '.' + suffix + '.v_vecs', V)
 
