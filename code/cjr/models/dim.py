@@ -82,7 +82,11 @@ def sign_mat_to_voting_pats(M):
 
 
 def create_prob(n_dim, voting_patterns, ctx=None):
-    """Given the (unique) votes, create a problem for Z3 to solve."""
+    """Given the (unique) votes, create a problem for Z3 to solve.
+
+    Returns solver, c_vars, v_vars.
+
+    """
     n_voters = len(voting_patterns)
     n_comments = len(voting_patterns[0])
 
