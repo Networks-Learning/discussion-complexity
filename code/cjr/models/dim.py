@@ -412,7 +412,6 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
         col_sets[j][equiv_signs[i, j]].add(i)
 
     forest_edges = defaultdict(lambda: set())
-    # forest_nodes = defaultdict(lambda: set())
 
     probs = np.ones(sign_mat.shape[1])
     params = [(ii, jj, probs, equiv_sets, equiv_signs)
@@ -424,8 +423,6 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
         edges_heap = pool.map(_worker_spanning_tree, params)
 
     pq_dict = pqdict({(i, j): (wt, wt, ties, (i, j)) for (wt, ties, (i, j)) in edges_heap})
-
-    first_loop_2 = [True, True]
 
     def update_col_sets(row, col, sgn, old_pos):
         all_old_pos = old_pos.union([row])
@@ -443,9 +440,6 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                         (wt, orig_wt, tie, (_, _)) = pq_dict[u, v]
                         pq_dict[u, v] = (wt + probs[col], orig_wt, tie, (u, v))
         else:
-            if first_loop_2[0] and verbose:
-                print('Loop 2_1 triggered!')
-                first_loop_2[0] = False
             set_1 = col_sets[col][-1 * sgn]
             set_2 = all_old_pos
 
@@ -474,10 +468,6 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                 set_1 = col_sets[col][-1 * sgn]
                 set_2 = all_old_pos
 
-                if first_loop_2[1] and verbose:
-                    print('Loop 2_2 triggered!')
-                    first_loop_2[1] = False
-
                 for u, v in pq_dict:
                     if uf[u] != uf[v]:
                         if (u in set_1 and v in set_2) or (v in set_1 and u in set_2):
@@ -501,15 +491,10 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
             merged_columns = set()
 
             edges_forest_i, edges_forest_j = forest_edges[uf[i]], forest_edges[uf[j]]
-            # nodes_forest_i, nodes_forest_j = forest_nodes[uf[i]], forest_nodes[uf[j]]
             new_root = uf.union(i, j)
 
             forest_edges[new_root] = edges_forest_i.union(edges_forest_j)
             forest_edges[new_root].add((i, j))
-
-            # forest_nodes[new_root] = nodes_forest_i.union(nodes_forest_j)
-            # forest_nodes[new_root].add(i)
-            # forest_nodes[new_root].add(j)
 
             # # Remove all the edges which can no longer be part of the spanning
             # # tree.
@@ -574,13 +559,6 @@ def make_spanning_tree(sign_mat, min_avg=False, pool=None, verbose=False, disabl
                 #          for col, p in enumerate(probs)]
                 # Not changing the probs at all.
                 pass
-
-            # to_drop = set()
-            # for u, v in pq_dict:
-            #     if uf[u] == uf[v]:
-            #         to_drop.add((u, v))
-            # for pair in to_drop:
-            #     del pq_dict[pair]
 
             # This can probably be optimized further because update of the weights in
             # this manner was required for the proof.

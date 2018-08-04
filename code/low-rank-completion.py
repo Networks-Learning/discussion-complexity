@@ -58,12 +58,12 @@ def cmd(in_mat_file, init_c_vecs, init_v_vecs, dims, seed, suffix, i_loo, j_loo,
     # Scaling the initial values such that all dot products are at most = alpha / 1.21
     if not UV_mode:
         UV_str = ''
+        M_max = np.max(np.abs(U.dot(V.T)))
         U /= np.sqrt(M_max / alpha) * 1.1
         V /= np.sqrt(M_max / alpha) * 1.1
         print('Not running in UV mode.')
     else:
         UV_str = '.UV'
-        M_max = np.max(np.abs(U.dot(V.T)))
         U /= np.max(np.abs(U)) / alpha * 1.1
         V /= np.max(np.abs(V)) / alpha * 1.1
         print('Running in UV mode.')
