@@ -1,6 +1,6 @@
+import matplotlib; matplotlib.use('agg')
 import numpy as np
 import seaborn as sns
-import matplotlib
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from math import sqrt

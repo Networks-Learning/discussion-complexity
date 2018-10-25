@@ -1,7 +1,10 @@
-networkx==2.0rc1
-z3
 click
-pandas
+cvxpy
+dccp 
 numpy
-scipy
+decorated_options
+seaborn
+z3-solver
+networkx
 pqdict
+fancyimpute
