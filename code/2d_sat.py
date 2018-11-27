@@ -33,15 +33,6 @@ def cmd(in_file, n_dims, cpus, timeout, real, improve, use_contextId, nrows):
        1\t 201\t 3000\t DOWN
        ...
 
-       of (in case of merged data):
-
-       \b
-       comment_id,voter_id,comment_tree_id,vote_type,r.abuse_vote,m.uid_alias,m.created_at,context_id,message_id,namespace,description,url,comment,lang
-       0,r0,U1,r0,1.0,,u217409,1502981871,UID1,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
-       1,r0,U2,r0,1.0,,u217409,1502981871,UID2,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
-       2,r0,U3,r0,1.0,,u217409,1502981871,UID3,r0,yahoo_content,{()},{()},Que lindo!!!!!,pt
-       ...
-
     Outputs a CSV which contains whether the comment/article-tree had a sign-rank of 2 or not.
 
     Redirect output to a file to save it.
