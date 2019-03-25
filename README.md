@@ -1,4 +1,4 @@
-# On complexity of online discussions
+# On Complexity of Opinions and Online Discussions
 
 This is the code accompanying the paper:
 
